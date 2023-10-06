@@ -10,13 +10,15 @@ enum SpinnerTask{
 };
 
 struct SpinnerAction{
-    unsigned long duration;
+    unsigned int duration;
     SpinnerTask task;
     float rpm;
 };
 
 class SpinnerJob{
     public:
+        #define MAX_SEQUENCE_LENGTH 50
+        #define BEGIN_DURATION 50
         unsigned long jobStartTime;
         float startRPM;
         float endRPM;
@@ -24,13 +26,14 @@ class SpinnerJob{
         int currentSequence;
         SpinnerJob();
         ~SpinnerJob();
-        int begin(); // begins the current job sequence. Returns the total number of tasks in the sequence.
-        void next();
+        bool init(SpinnerAction* sequence); // Initializes the job sequence. Returns false if the job is not a valid job sequence.
+        bool begin(); // begins the job sequence. Returns false if the job is not a valid job sequence.
+        bool update(); // updates the job state. Returns false if the job has finished.
 
     private:
         unsigned long taskStartTime;
         float minRPM;
-        SpinnerAction sequence[UINT8_MAX];
+        SpinnerAction sequence[MAX_SEQUENCE_LENGTH];
 };
 
 class SpinnerCore{

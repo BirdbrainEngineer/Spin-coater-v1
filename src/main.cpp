@@ -11,7 +11,7 @@ class PID_controller;
 
 // =====================Device information constants========================
 const char DEVICE_NAME[] = "BB Spin Coater";
-const char HARDWARE_REVISION[] = "0.1.0";
+const char HARDWARE_VERSION[] = "0.1.0";
 const char FIRMWARE_VERSION[] = "0.1.0";
 const char HARDWARE[] = "Birdbrain";
 const char SOFTWARE[] = "Birdbrain";
@@ -19,34 +19,34 @@ const char LICENSE[] = "MIT";
 
 
 // ============================GPIO PINOUT==================================
-// = 0;
-// = 1;
-const int lcd_d4 = 2;
-const int lcd_d5 = 3;
-const int lcd_d6 = 4;
-const int lcd_d7 = 5;
-const int membrane0_pin = 6;
-const int membrane1_pin = 7;
-const int membrane2_pin = 8;
-const int membrane3_pin = 9;
-const int membrane4_pin = 10;
-const int membrane5_pin = 11;
-const int membrane6_pin = 12;
-const int membrane7_pin = 13;
-const int lcd_rs = 14;
-const int lcd_en = 15;
+// 0 used for usb
+// 1 used for usb
+const int lcd_rs = 2;
+const int lcd_en = 3;
+const int lcd_d4 = 5;
+const int lcd_d5 = 4;
+const int lcd_d6 = 6;
+const int lcd_d7 = 7;
+const int membrane_row_0_pin = 8;
+const int membrane_row_1_pin = 9;
+const int membrane_row_2_pin = 10;
+const int membrane_row_3_pin = 11;
+const int membrane_col_0_pin = 12;
+const int membrane_col_1_pin = 13;
+const int membrane_col_2_pin = 14;
+const int membrane_col_3_pin = 15;
 //=====================
 const int SPI0_RX = 16;  //Arduino-pico core default pin
 const int SPI0_SC = 17;  //Arduino-pico core default pin
 const int SPI0_CLK = 18; //Arduino-pico core default pin
 const int SPI0_TX = 19;  //Arduino-pico core default pin
 const int spinner_power_enable_pin = 20;
-const int motor_pwm_pin = 21;
-const int tachometer_pin = 22;
-// = 23;
-// = 24;
-// = 25;
-// = 26;
+const int tachometer_pin = 21;
+const int motor_pwm_pin = 22;
+// 23 not available
+// 24 not available
+// 25 not available
+const int running_led_pin = 26;
 const int manual_rpm_fine_adjust_pin = 27;
 const int manual_rpm_coarse_adjust_pin = 28;
 
@@ -54,17 +54,16 @@ const int manual_rpm_coarse_adjust_pin = 28;
 void tachInterrupt();
 bool analogInterrupt(struct repeating_timer *t);
 void processInput(Key inputKey);
-void(* resetFunc) (void) = 0;
+void reset(uint32_t delay);
 
 
 // ========================Program constants================================
 const float motorPWMFrequency = 25000.0;
-enum CoreMsg {
-  NONE,
-  RECEIVED_FAULTY,
-  START_MOTOR,
-  STOP_MOTOR,
-  KICK_MOTOR,
+enum SpinnerState {
+  IDLE,
+  RUN_PID,
+  RUN_ANALOG,
+  FAULT,
 };
 const int analogInterruptInterval = 100;
 const float controllerMinOutput = 12.0;
@@ -79,9 +78,10 @@ char keys[keyPadRows][keyPadCols] = {
   {'7','8','9','C'},
   {'*','0','#','D'}
 };
-const u8_t rowPins[keyPadRows] = {membrane0_pin, membrane1_pin, membrane2_pin, membrane3_pin};
-const u8_t colPins[keyPadCols] = {membrane4_pin, membrane5_pin, membrane6_pin, membrane7_pin};
+const u8_t rowPins[keyPadRows] = {membrane_row_0_pin, membrane_row_1_pin, membrane_row_2_pin, membrane_row_3_pin};
+const u8_t colPins[keyPadCols] = {membrane_col_0_pin, membrane_col_1_pin, membrane_col_2_pin, membrane_col_3_pin};
 const unsigned int keypadDebounceInterval = 10;
+const unsigned long coreLoopInterval = 500; //in micros
 
 
 // =========================Inter-Core variables==============================
@@ -91,7 +91,7 @@ volatile bool PID_enabled = false;
 volatile float rpmTarget = 3333.0;
 volatile double currentRpm = 0.0;
 volatile float dutyCycle = 0.0;
-volatile CoreMsg coreMsgBuf[2] = {NONE, NONE};
+volatile SpinnerState currentState = IDLE;
 volatile float Kp = 0.3;
 volatile float Ki = 0.004;
 volatile float Kd = 0.0;
@@ -116,35 +116,39 @@ void setup() {
   lcd.print("Initializing...");
 
   if (!SD.begin(17)) {
-    lcd.print("Memory failure!");
+    lcd.clear();
+    lcd.print("SD unavailable!");
     lcd.setCursor(0, 1);
     lcd.print("#:Cont.  Reset:*");
-    while(true){
+    bool unresolved = true;
+    while(unresolved){
       keypad->pollBlocking();
       if(keypad->getKeysWithState(KEY_DOWN) > 0){
         switch(keypad->buffer[0].key){
           case '#':   memoryGood = false;
                       lcd.clear();
-                      lcd.print("Loading and saving");
+                      lcd.print("Loading & saving");
                       lcd.setCursor(0, 1);
                       lcd.print("not available.");
+                      unresolved = false;
                       delay(2000);
                       break;
           case '*':   lcd.clear();
                       lcd.print("Restarting...");
-                      delay(2000);
-                      resetFunc();
+                      reset(2000);
                       break;
         }
       }
     }
   }
-
-  myFile = SD.open("test.txt", FILE_WRITE);
-  if (myFile) {
-    myFile.println("PID tuning");
-    myFile.close();
+  else {
+    myFile = SD.open("test.txt", FILE_WRITE);
+    if (myFile) {
+      myFile.println("PID tuning");
+      myFile.close();
+    }
   }
+
   coreMsgBuf[1] = START_MOTOR;
 }
 
@@ -175,7 +179,6 @@ volatile unsigned long microsSinceLastRpmCount = 0;
 volatile bool newRpmData = false;
 
 // ======================Core-specific variables==============================
-const unsigned long coreLoopInterval = 500; //in micros
 RP2040_PWM* motorDriver;
 PID_controller pidController;
 RPI_PICO_Timer ITimer2(2);
@@ -204,49 +207,9 @@ void setup1() {
 }
 
 void loop1() {
-  while((micros() - core1Timer) > 500){}
-  core1Timer = micros();
-  switch(coreMsgBuf[1]){
-    case NONE:              break;
-    case RECEIVED_FAULTY:   break;
-
-    case START_MOTOR:       digitalWrite(spinner_power_enable_pin, HIGH); 
-                            rpmTimer = micros();
-                            PID_enabled ?
-                              motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, controllerMaxOutput) :
-                              motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, -(manualDutyCycle - 100.0));
-                            motorEnabled = true;
-                            coreMsgBuf[1] = NONE;
-                            break;
-
-    case STOP_MOTOR:        motorEnabled = false; 
-                            motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 100);
-                            digitalWrite(spinner_power_enable_pin, LOW);
-                            coreMsgBuf[1] = NONE;
-                            break;
-
-    case KICK_MOTOR:        if(motorEnabled){
-                              motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, controllerMaxOutput);
-                              coreMsgBuf[1] = NONE;
-                            }
-                            break;
-
-    default:                coreMsgBuf[0] = RECEIVED_FAULTY; break;
-  }
-
-  if(motorEnabled){
-    if(PID_enabled){
-      if(newRpmData){
-        dutyCycle = pidController.compute(rpmTarget, currentRpm, microsSinceLastRpmCount);
-        motorDriver->setPWM(motor_pwm_pin, 25000.0, -(dutyCycle - 100.0)); // physical duty cycle is inverted thanks to inverter push-pull
-      }
-    }
-    else if((core1Loops % 20) == 0) {
-      dutyCycle = manualDutyCycle;
-      motorDriver->setPWM(motor_pwm_pin, 25000.0, -(dutyCycle - 100.0));
-    }
-  }
-  core1Loops++;
+  unsigned int loopInterval = coreLoopInterval;
+  while((micros() - core1Timer) > loopInterval){}
+  core1Timer = micros();  
 }
 
 
@@ -314,4 +277,9 @@ void processInput(Key inputKey){
                 }
                 break;
   }
+}
+
+void reset(uint32_t delay){
+  watchdog_reboot(0, 0, delay);
+  while(true){}
 }
