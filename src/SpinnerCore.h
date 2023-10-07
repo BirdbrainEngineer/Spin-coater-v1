@@ -3,13 +3,38 @@
 #include <SPI.h>
 
 enum SpinnerTask{
+    NONE,
     HOLD,
     RAMP,
-    END
+    END,
 };
 
 struct SpinnerAction{
-    SpinnerTask task;
-    u32_t duration; // in milliseconds
-    float rpm; // if ramp task, then defines the rpm at end of ramp. Start rpm is the hold rpm/end rpm of previous task.
+    SpinnerTask task = NONE;
+    u32_t duration = 1000; // in milliseconds
+    float rpm = 0; // if ramp task, then defines the rpm at end of ramp. Start rpm is the hold rpm/end rpm of previous task.
+};
+
+class SpinnerJob{
+    public:
+        SpinnerAction* sequence;
+        u8_t sequenceLength;
+        u8_t index;
+        float currentTargetRpm;
+        bool sequenceEdited;
+
+        SpinnerJob();
+        SpinnerJob(u8_t size);
+        ~SpinnerJob();
+        void start();
+        bool update();
+        void reset();
+        bool pushAction(SpinnerAction action);
+        bool addAction(u8_t index, SpinnerAction action);
+
+    private:
+        unsigned long nextTransitionTime;
+        unsigned long previousTransitionTime;
+        float previousRpm;
+        void init(u8_t size);
 };

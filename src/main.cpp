@@ -9,6 +9,7 @@
 #include <BBkeypad.h>
 #include <TextBuffer.h>
 #include <ArduinoJson.h>
+#include <SpinnerCore.h>
 
 
 
@@ -70,12 +71,7 @@ struct Config {
 void tachInterrupt();
 bool analogInterrupt(struct repeating_timer *t);
 void processInput(Key inputKey);
-void reset(uint32_t delay);
 
-void printlcd(char* text);
-void printlcd(const char* text);
-void printlcdErrorMsg(char* text);
-void printlcdErrorMsg(const char* text);
 void loadConfiguration(volatile Config &config);
 void saveConfiguration(volatile Config &config);
 
@@ -116,8 +112,8 @@ volatile float rpmTarget = 3333.0;
 volatile double currentRPM = 0.0;
 volatile float dutyCycle = 0.0;
 volatile SpinnerState currentState = SpinnerState::IDLE;
-volatile Config config = {0.3, 0.004, 0.0};
-volatile Config currentConfig = {0.0, 0.0, 0.0};
+volatile Config config = {0.0, 0.0, 0.0};
+volatile Config storedConfig = {0.0, 0.0, 0.0};
 
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Core-0  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -144,28 +140,9 @@ void setup() {
   lcd.print("Initializing...");
 
   if (!SD.begin(17)) {
-    lcd.clear();
-    lcd.print("SD unavailable!");
-    lcd.setCursor(0, 1);
-    lcd.print("#:Cont.  Reset:*");
-    bool unresolved = true;
-    while(unresolved){
-      keypad->pollBlocking();
-      if(keypad->getKeysWithState(KeyState::KEY_DOWN) > 0){
-        switch(keypad->buffer[0].key){
-          case ENTER:   memoryGood = false;
-                        printlcdErrorMsg("Functionality\nlimited!");
-                        unresolved = false;
-                        delay(2000);
-                        break;
-
-          case BACK:    lcd.clear();
-                        lcd.print("Restarting...");
-                        reset(2000);
-                        break;
-        }
-      }
-    }
+    printlcdErrorMsg("SD card\nnot found!");
+    memoryGood = false;
+    printlcdErrorMsg("Functionality");
   }
   else {
     // Checks whether Jobs directory exists, if not, creates it. If a file with the same name exists, deletes it
@@ -184,7 +161,6 @@ void setup() {
       SD.mkdir("/jobs");
     }
   }
-
   loadConfiguration(config);
 
   digitalWrite(spinner_running_led_pin, LOW);
@@ -313,7 +289,7 @@ void processInput(Key inputKey){
   }
 }
 
-void reset(uint32_t delay){
+void reboot(uint32_t delay){
   watchdog_reboot(0, 0, delay);
   while(true){}
 }
