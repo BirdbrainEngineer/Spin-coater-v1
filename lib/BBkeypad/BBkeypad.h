@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-enum KeyState {
+enum class KeyState {
     IDLE,       // Key is not pressed
     KEY_DOWN,   // Key was just pressed
     KEY_UP,     // Key was just released
@@ -13,7 +13,6 @@ struct Key {
     unsigned long timestamp;    // Stores the timestamp of when the key was last pressed down or released
     KeyState state;             // Current state of the key
 };
-
 class BBkeypad {
     private:
         u8_t numRows;

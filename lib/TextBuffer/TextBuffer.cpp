@@ -101,7 +101,7 @@ char TextBuffer::readBack(){
 }
 
 bool TextBuffer::isEmpty(){
-    pointer == 0 ? true : false;
+    return pointer == 0 ? true : false;
 }
 
 void TextBuffer::clear(){

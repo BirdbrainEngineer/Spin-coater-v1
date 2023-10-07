@@ -22,7 +22,7 @@ BBkeypad::BBkeypad(char* keys, const u8_t numColumns, const u8_t numRows, const 
     }
     for(int x = 0; x < this->numRows; x++){
         for(int y = 0; y < this->numColumns; y++){
-            this->keypad[x * this->numRows + y] = Key{keys[x * this->numRows + y], 0, IDLE};
+            this->keypad[x * this->numRows + y] = Key{keys[x * this->numRows + y], 0, KeyState::IDLE};
         }
     }
     for(int i = 0; i < (this->numColumns * this->numRows); i++){
@@ -45,30 +45,30 @@ bool BBkeypad::poll(){
             switch(digitalRead(this->rowPins[y])){
                 case LOW:
                     switch(key->state){
-                        case HELD: break;
+                        case KeyState::HELD: break;
 
-                        case PRESSED:
+                        case KeyState::PRESSED:
                             if(currentTime - key->timestamp > this->holdTime){ 
-                                key->state = HELD;
+                                key->state = KeyState::HELD;
                                 key->timestamp = currentTime;
                                 keyActivity = true;
                             }
                             break;
 
-                        case IDLE: 
-                            key->state = KEY_DOWN;
+                        case KeyState::IDLE: 
+                            key->state = KeyState::KEY_DOWN;
                             key->timestamp = currentTime;
                             keyActivity = true;
                             break;
 
-                        case KEY_DOWN:
-                            key->state = PRESSED;
+                        case KeyState::KEY_DOWN:
+                            key->state = KeyState::PRESSED;
                             keyActivity = true;
                             break;
 
-                        case KEY_UP:
+                        case KeyState::KEY_UP:
                             if(currentTime - key->timestamp > this->debounceInterval){
-                                key->state = KEY_DOWN;
+                                key->state = KeyState::KEY_DOWN;
                                 key->timestamp = currentTime;
                                 keyActivity = true;
                             }
@@ -80,31 +80,31 @@ bool BBkeypad::poll(){
 
                 case HIGH:
                     switch(key->state){
-                        case IDLE: break;
+                        case KeyState::IDLE: break;
 
-                        case PRESSED:
+                        case KeyState::PRESSED:
                             if(currentTime - key->timestamp > this->debounceInterval){ break; }
-                            key->state = KEY_UP;
+                            key->state = KeyState::KEY_UP;
                             key->timestamp = currentTime;
                             keyActivity = true;
                             break;
 
-                        case HELD:
-                            key->state = KEY_UP;
+                        case KeyState::HELD:
+                            key->state = KeyState::KEY_UP;
                             key->timestamp = currentTime;
                             keyActivity = true;
                             break;
 
-                        case KEY_DOWN:
+                        case KeyState::KEY_DOWN:
                             if(currentTime - key->timestamp > this->debounceInterval){
-                                key->state = KEY_UP;
+                                key->state = KeyState::KEY_UP;
                                 key->timestamp = currentTime;
                                 keyActivity = true;
                             }
                             break;
 
-                        case KEY_UP: 
-                            key->state = IDLE; 
+                        case KeyState::KEY_UP: 
+                            key->state = KeyState::IDLE; 
                             keyActivity = true;
                             break;
 
@@ -151,7 +151,10 @@ unsigned int BBkeypad::getKeysWithState(KeyState state){
 unsigned int BBkeypad::getPressedKeys(){
     int bufferIndex = 0;
     for(int i = 0; i < (this->numColumns * this->numRows); i++){
-        if(this->keypad[i].state == KEY_DOWN || this->keypad[i].state == PRESSED || this->keypad[i].state == HELD){
+        if(this->keypad[i].state == KeyState::KEY_DOWN || 
+            this->keypad[i].state == KeyState::PRESSED || 
+            this->keypad[i].state == KeyState::HELD)
+        {
             this->buffer[bufferIndex] = this->keypad[i];
             bufferIndex++;
         }

@@ -1,3 +1,4 @@
+#include <main.h>
 #include <Arduino.h>
 #include <LiquidCrystal.h>
 #include <SD.h>
@@ -6,6 +7,8 @@
 #include <RPi_Pico_TimerInterrupt.h>
 #include <PID_controller.h>
 #include <BBkeypad.h>
+#include <TextBuffer.h>
+
 
 class PID_controller;
 
@@ -82,16 +85,16 @@ const u8_t rowPins[keyPadRows] = {membrane_row_0_pin, membrane_row_1_pin, membra
 const u8_t colPins[keyPadCols] = {membrane_col_0_pin, membrane_col_1_pin, membrane_col_2_pin, membrane_col_3_pin};
 const unsigned int keypadDebounceInterval = 10;
 const unsigned long coreLoopInterval = 500; //in micros
-
+volatile const float analogAlpha = 0.01;
+volatile const float rpmAlpha = 0.2;
 
 // =========================Inter-Core variables==============================
 volatile float manualDutyCycle = 0.0;
-volatile float analogAlpha = 0.01;
 volatile bool PID_enabled = false;
 volatile float rpmTarget = 3333.0;
-volatile double currentRpm = 0.0;
+volatile double currentRPM = 0.0;
 volatile float dutyCycle = 0.0;
-volatile SpinnerState currentState = IDLE;
+volatile SpinnerState currentState = SpinnerState::IDLE;
 volatile float Kp = 0.3;
 volatile float Ki = 0.004;
 volatile float Kd = 0.0;
@@ -103,6 +106,8 @@ volatile float Kd = 0.0;
 File myFile;
 LiquidCrystal lcd = LiquidCrystal(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7);
 BBkeypad* keypad;
+TextBuffer* buffer;
+char inputBuffer[inputBufferSize];
 bool cursorBlinker = false;
 char inputBuffer[inputBufferSize];
 unsigned long inputBufferIndex = 0;
@@ -111,7 +116,10 @@ bool memoryGood = true;
 
 // ========================= Code ========================================
 void setup() {
+  pinMode(running_led_pin, OUTPUT);
+
   keypad = new BBkeypad((char*)keys, keyPadCols, keyPadRows, colPins, rowPins);
+  buffer = new TextBuffer(inputBuffer, inputBufferSize);
   lcd.begin(16, 2);
   lcd.print("Initializing...");
 
@@ -123,7 +131,7 @@ void setup() {
     bool unresolved = true;
     while(unresolved){
       keypad->pollBlocking();
-      if(keypad->getKeysWithState(KEY_DOWN) > 0){
+      if(keypad->getKeysWithState(KeyState::KEY_DOWN) > 0){
         switch(keypad->buffer[0].key){
           case '#':   memoryGood = false;
                       lcd.clear();
@@ -144,26 +152,26 @@ void setup() {
   else {
     myFile = SD.open("test.txt", FILE_WRITE);
     if (myFile) {
-      myFile.println("PID tuning");
+      myFile.println("core generation");
       myFile.close();
     }
   }
 
-  coreMsgBuf[1] = START_MOTOR;
+  digitalWrite(running_led_pin, LOW);
 }
 
 void loop() {
   cursorBlinker = !cursorBlinker;
   cursorBlinker ? lcd.cursor() : lcd.noCursor();
   if(keypad->poll()){
-    if(keypad->getKeysWithState(KEY_DOWN) > 0){
+    if(keypad->getKeysWithState(KeyState::KEY_DOWN) > 0){
       processInput(keypad->buffer[0]);
     }
   }
   lcd.clear();
   lcd.print(dutyCycle, 2);
   lcd.print(" rpm:");
-  lcd.print(currentRpm, 2);
+  lcd.print(currentRPM, 2);
   lcd.setCursor(0, 1);
   lcd.print(inputBuffer);
   delay(200);
@@ -181,7 +189,7 @@ volatile bool newRpmData = false;
 // ======================Core-specific variables==============================
 RP2040_PWM* motorDriver;
 PID_controller pidController;
-RPI_PICO_Timer ITimer2(2);
+RPI_PICO_Timer ITimer3(3);
 bool motorEnabled = false;
 unsigned long core1Timer = 0;
 unsigned long core1Loops = 0;
@@ -201,27 +209,31 @@ void setup1() {
   pinMode(manual_rpm_coarse_adjust_pin, INPUT);
   pinMode(manual_rpm_fine_adjust_pin, INPUT);
   analogReadResolution(16);
-  ITimer2.attachInterruptInterval(analogInterruptInterval, analogInterrupt);
+  ITimer3.attachInterruptInterval(analogInterruptInterval, analogInterrupt);
   core1Timer = micros();
   interrupts();
 }
 
 void loop1() {
   unsigned int loopInterval = coreLoopInterval;
-  while((micros() - core1Timer) > loopInterval){}
-  core1Timer = micros();  
+  while(true){
+    while((micros() - core1Timer) < loopInterval){}
+    core1Timer = micros();
+    core1Loops++;
+
+  }
 }
 
 
 // @@@@@@@@@@@@@@@@@@@@@@@@@  Interrupts  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 void tachInterrupt(){
-  if(!motorEnabled){ return; }
   unsigned long currentTime = micros();
   unsigned long microsElapsed = currentTime - rpmTimer;
   if (microsElapsed < tachometerDebounceInterval) { return; }
   microsSinceLastRpmCount = microsElapsed;
-  currentRpm = 1000000.0 / (double)microsElapsed * 15.0; // four transitions per revolution
+  double rpmSample = 1000000.0 / (double)microsElapsed * 15.0; // four transitions per revolution
+  currentRPM = (rpmSample * rpmAlpha) + (currentRPM * (1.0 - rpmAlpha));
   rpmTimer = currentTime;
 }
 
@@ -245,17 +257,13 @@ void processInput(Key inputKey){
                 inputBuffer[inputBufferIndex] = '\0';
                 break;
 
-    case '*':   if(inputBufferIndex > 0){
-                  inputBufferIndex--;
-                  inputBuffer[inputBufferIndex] = '\0';
-                }
+    case '*':   buffer->popBack();
                 break;
 
     case 'A':   PID_enabled = false;
                 break;
 
     case 'B':   PID_enabled = true;
-                coreMsgBuf[1] = KICK_MOTOR;
                 break;
 
     case 'C':   Kp = (float)atof(inputBuffer);
@@ -270,11 +278,7 @@ void processInput(Key inputKey){
                 }
                 break;
 
-    default:    if(inputBufferIndex < (inputBufferSize - 1)){
-                  inputBuffer[inputBufferIndex] = key;
-                  inputBufferIndex++; 
-                  inputBuffer[inputBufferIndex] = '\0';
-                }
+    default:    buffer->pushBack(key);
                 break;
   }
 }
