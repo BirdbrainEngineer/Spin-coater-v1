@@ -8,12 +8,14 @@
 #include <PID_controller.h>
 #include <BBkeypad.h>
 #include <TextBuffer.h>
+#include <ArduinoJson.h>
+
 
 
 class PID_controller;
 
 // =====================Device information constants========================
-const char DEVICE_NAME[] = "BB Spin Coater";
+const char DEVICE_NAME[] = "BB Spin Coater\nv0.1.0";
 const char HARDWARE_VERSION[] = "0.1.0";
 const char FIRMWARE_VERSION[] = "0.1.0";
 const char HARDWARE[] = "Birdbrain";
@@ -49,25 +51,37 @@ const int motor_pwm_pin = 22;
 // 23 not available
 // 24 not available
 // 25 not available
-const int running_led_pin = 26;
+const int spinner_running_led_pin = 26;
 const int manual_rpm_fine_adjust_pin = 27;
 const int manual_rpm_coarse_adjust_pin = 28;
 
 // ===========================Declarations==================================
-void tachInterrupt();
-bool analogInterrupt(struct repeating_timer *t);
-void processInput(Key inputKey);
-void reset(uint32_t delay);
-
-
-// ========================Program constants================================
-const float motorPWMFrequency = 25000.0;
 enum SpinnerState {
   IDLE,
   RUN_PID,
   RUN_ANALOG,
   FAULT,
 };
+struct Config {
+  float Kp;
+  float Ki;
+  float Kd;
+};
+void tachInterrupt();
+bool analogInterrupt(struct repeating_timer *t);
+void processInput(Key inputKey);
+void reset(uint32_t delay);
+
+void printlcd(char* text);
+void printlcd(const char* text);
+void printlcdErrorMsg(char* text);
+void printlcdErrorMsg(const char* text);
+void loadConfiguration(volatile Config &config);
+void saveConfiguration(volatile Config &config);
+
+
+// ========================Program constants================================
+const float motorPWMFrequency = 25000.0;
 const int analogInterruptInterval = 100;
 const float controllerMinOutput = 12.0;
 const float controllerMaxOutput = 100.0;
@@ -81,12 +95,19 @@ char keys[keyPadRows][keyPadCols] = {
   {'7','8','9','C'},
   {'*','0','#','D'}
 };
+const char ENTER = '#';
+const char BACK = '*';
+const char UP = 'C';
+const char DOWN = 'D';
+const char YES = 'A';
+const char NO = 'B';
 const u8_t rowPins[keyPadRows] = {membrane_row_0_pin, membrane_row_1_pin, membrane_row_2_pin, membrane_row_3_pin};
 const u8_t colPins[keyPadCols] = {membrane_col_0_pin, membrane_col_1_pin, membrane_col_2_pin, membrane_col_3_pin};
 const unsigned int keypadDebounceInterval = 10;
 const unsigned long coreLoopInterval = 500; //in micros
 volatile const float analogAlpha = 0.01;
 volatile const float rpmAlpha = 0.2;
+const Config defaultConfig = {0.3, 0.004, 0.0};
 
 // =========================Inter-Core variables==============================
 volatile float manualDutyCycle = 0.0;
@@ -95,9 +116,8 @@ volatile float rpmTarget = 3333.0;
 volatile double currentRPM = 0.0;
 volatile float dutyCycle = 0.0;
 volatile SpinnerState currentState = SpinnerState::IDLE;
-volatile float Kp = 0.3;
-volatile float Ki = 0.004;
-volatile float Kd = 0.0;
+volatile Config config = {0.3, 0.004, 0.0};
+volatile Config currentConfig = {0.0, 0.0, 0.0};
 
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Core-0  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -109,14 +129,14 @@ BBkeypad* keypad;
 TextBuffer* buffer;
 char inputBuffer[inputBufferSize];
 bool cursorBlinker = false;
-char inputBuffer[inputBufferSize];
 unsigned long inputBufferIndex = 0;
 bool memoryGood = true;
 
 
+
 // ========================= Code ========================================
 void setup() {
-  pinMode(running_led_pin, OUTPUT);
+  pinMode(spinner_running_led_pin, OUTPUT);
 
   keypad = new BBkeypad((char*)keys, keyPadCols, keyPadRows, colPins, rowPins);
   buffer = new TextBuffer(inputBuffer, inputBufferSize);
@@ -133,31 +153,41 @@ void setup() {
       keypad->pollBlocking();
       if(keypad->getKeysWithState(KeyState::KEY_DOWN) > 0){
         switch(keypad->buffer[0].key){
-          case '#':   memoryGood = false;
-                      lcd.clear();
-                      lcd.print("Loading & saving");
-                      lcd.setCursor(0, 1);
-                      lcd.print("not available.");
-                      unresolved = false;
-                      delay(2000);
-                      break;
-          case '*':   lcd.clear();
-                      lcd.print("Restarting...");
-                      reset(2000);
-                      break;
+          case ENTER:   memoryGood = false;
+                        printlcdErrorMsg("Functionality\nlimited!");
+                        unresolved = false;
+                        delay(2000);
+                        break;
+
+          case BACK:    lcd.clear();
+                        lcd.print("Restarting...");
+                        reset(2000);
+                        break;
         }
       }
     }
   }
   else {
-    myFile = SD.open("test.txt", FILE_WRITE);
-    if (myFile) {
-      myFile.println("core generation");
-      myFile.close();
+    // Checks whether Jobs directory exists, if not, creates it. If a file with the same name exists, deletes it
+    if(SD.exists("/jobs")){
+      myFile = SD.open("/jobs");
+      if(myFile.isDirectory()){
+        myFile.close();
+      }
+      else{
+        myFile.close();
+        SD.remove("/jobs");
+        SD.mkdir("/jobs");
+      }
+    }
+    else{
+      SD.mkdir("/jobs");
     }
   }
 
-  digitalWrite(running_led_pin, LOW);
+  loadConfiguration(config);
+
+  digitalWrite(spinner_running_led_pin, LOW);
 }
 
 void loop() {
@@ -198,7 +228,7 @@ unsigned long core1Loops = 0;
 // ==============================Code=====================================
 void setup1() {
   motorDriver = new RP2040_PWM(motor_pwm_pin, motorPWMFrequency, 0.0);
-  pidController = PID_controller(Kp, Ki, Kd, controllerMinOutput, controllerMaxOutput);
+  pidController = PID_controller(config.Kp, config.Ki, config.Kd, controllerMinOutput, controllerMaxOutput);
 
   pinMode(spinner_power_enable_pin, OUTPUT);
   pinMode(tachometer_pin, INPUT_PULLUP);
@@ -266,7 +296,7 @@ void processInput(Key inputKey){
     case 'B':   PID_enabled = true;
                 break;
 
-    case 'C':   Kp = (float)atof(inputBuffer);
+    case 'C':   config.Kp = (float)atof(inputBuffer);
                 inputBufferIndex = 0;
                 inputBuffer[inputBufferIndex] = '\0';
                 break;
@@ -286,4 +316,121 @@ void processInput(Key inputKey){
 void reset(uint32_t delay){
   watchdog_reboot(0, 0, delay);
   while(true){}
+}
+
+void printlcd(char* text){
+  u8_t pointer = 0;
+  u8_t bufPointer = 0;
+  u8_t cursorPointer = 0; 
+  char buf[50];
+  lcd.clear();
+  for(int i = 0; i < 50; i++){
+    switch(text[i]){
+      case '\n':  buf[bufPointer] = '\0';
+                  lcd.print(buf);
+                  cursorPointer++;
+                  lcd.setCursor(0, cursorPointer);
+                  bufPointer = 0;
+                  pointer++;
+                  break;
+      case '\0':  buf[bufPointer] = '\0';
+                  lcd.print(buf);
+                  return;
+      default:    buf[bufPointer] = text[i];
+                  bufPointer++;
+                  pointer++;
+                  break;
+    }
+  }
+}
+
+void printlcd(const char* text){
+  u8_t pointer = 0;
+  u8_t bufPointer = 0;
+  u8_t cursorPointer = 0; 
+  char buf[50];
+  lcd.clear();
+  for(int i = 0; i < 50; i++){
+    switch(text[i]){
+      case '\n':  buf[bufPointer] = '\0';
+                  lcd.print(buf);
+                  cursorPointer++;
+                  lcd.setCursor(0, cursorPointer);
+                  bufPointer = 0;
+                  pointer++;
+                  break;
+      case '\0':  buf[bufPointer] = '\0';
+                  lcd.print(buf);
+                  return;
+      default:    buf[bufPointer] = text[i];
+                  bufPointer++;
+                  pointer++;
+                  break;
+    }
+  }
+}
+
+void loadConfiguration(volatile Config &config) {
+  File file = SD.open("/config.txt");
+  if (!file) {
+    printlcdErrorMsg("Missing the\nconfig file!");
+    saveConfiguration(config);
+    printlcdErrorMsg("Using default\nconfig.");
+    return;
+  }
+
+  StaticJsonDocument<256> doc;
+  DeserializationError error = deserializeJson(doc, file);
+  if (error){
+    printlcdErrorMsg("Failed to\ndeserialize data!");
+    printlcdErrorMsg("Using default\nconfig.");
+    return;
+  }
+  config.Kp = doc["Kp"];
+  config.Ki = doc["Ki"];
+  config.Kd = doc["Kd"];
+  file.close();
+}
+
+// Saves the configuration to a file
+void saveConfiguration(volatile Config &config) {
+  SD.remove("/config.txt");
+  File file = SD.open("/config.txt", FILE_WRITE);
+  if (!file) {
+    printlcdErrorMsg("Failed to make\nconfig file!");
+    return;
+  }
+
+  StaticJsonDocument<256> doc;
+  doc["Kp"] = config.Kp;
+  doc["Ki"] = config.Ki;
+  doc["Kd"] = config.Kd;
+  if (serializeJson(doc, file) == 0) {
+    printlcdErrorMsg("Failed to\nserialize data!");
+  }
+  file.close();
+}
+
+void printlcdErrorMsg(char* text){
+  printlcd(text);
+  while(true){
+    keypad->pollBlocking();
+    if(keypad->getPressedKeys() > 0){
+      if(keypad->buffer[0].key == ENTER || keypad->buffer[0].key == BACK){
+        return;
+      }
+    }
+  }
+}
+
+void printlcdErrorMsg(const char* text){
+  printlcd(text);
+  while(true){
+    keypad->pollBlocking();
+    if(keypad->getPressedKeys() > 0){
+      if(keypad->buffer[0].key == ENTER || keypad->buffer[0].key == BACK){
+        return;
+      }
+    }
+  }
 }

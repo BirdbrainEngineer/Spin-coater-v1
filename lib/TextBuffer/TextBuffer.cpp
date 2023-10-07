@@ -1,15 +1,26 @@
 #include <TextBuffer.h>
-#include <Arduino.h>
+
+TextBuffer::TextBuffer(u32_t size){
+    this->buffer = (char*)malloc(size * sizeof(char));
+    this->bufferLen = size;
+    this->pointer = 0;
+    this->ownsBuffer = true;
+}
 
 TextBuffer::TextBuffer(char *buffer, u32_t size){
     this->buffer = buffer;
     this->bufferLen = size;
-    this->textLen = bufferLen - 1;
     this->pointer = 0;
+    this->ownsBuffer = false;
 }
 
 TextBuffer::~TextBuffer(){
-    this->erase();
+    if(ownsBuffer){
+        free(buffer);
+    }
+    else{
+        this->erase();
+    }
 }
 
 bool TextBuffer::pushBack(char c){

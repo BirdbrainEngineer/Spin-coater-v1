@@ -1,5 +1,4 @@
 #include <BBkeypad.h>
-#include <Arduino.h>
 
 
 BBkeypad::BBkeypad(){}

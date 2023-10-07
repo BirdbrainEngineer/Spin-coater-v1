@@ -1,5 +1,11 @@
 #include <Arduino.h>
 
+
+struct MenuItem{
+    char* name;
+    void* enter;
+    void* exit;
+};
 struct MenuData{
     u8_t size;
     MenuItem* items;
@@ -10,25 +16,12 @@ class Menu {
         u8_t size;
         MenuItem* items;
         Menu(MenuData* menuDataConstructor());
-        Menu(u8_t size, MenuItem* items);
+        Menu(MenuItem* items);
         ~Menu();
         void populate();
     private:
         bool ownsItems;
         MenuData* (*menuDataConstructor)();
-};
-
-// struct Menu{
-//     u8_t size;
-//     MenuItem items[];
-//     Menu* 
-// };
-
-
-struct MenuItem{
-    char* name;
-    void* enter;
-    void* exit;
 };
 
 class MenuController{

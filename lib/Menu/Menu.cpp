@@ -1,13 +1,12 @@
 #include <Menu.h>
-#include <Arduino.h>
 
 Menu::Menu(MenuData* menuDataConstructor()){
     this->menuDataConstructor = menuDataConstructor;
     ownsItems = true;
 }
 
-Menu::Menu(u8_t size, MenuItem* items){
-    this->size = (sizeof items) / (sizeof *items); //sizeof *items gives size of only a single element
+Menu::Menu(MenuItem* items){
+    this->size = (sizeof items) / (sizeof *items); //(sizeof *items) gives size of only a single element
     this->items = items;
     ownsItems = false;
 }

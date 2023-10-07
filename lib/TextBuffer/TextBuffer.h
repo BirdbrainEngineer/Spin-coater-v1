@@ -3,6 +3,9 @@
 class TextBuffer{
     public:
         char* buffer;
+        u32_t bufferLen;
+        u32_t pointer;
+        TextBuffer(u32_t size);
         TextBuffer(char* buffer, u32_t size);
         ~TextBuffer();
         bool pushBack(char c);
@@ -18,7 +21,5 @@ class TextBuffer{
         void clear();
         void erase();
     private:
-        u32_t bufferLen;
-        u32_t textLen;
-        u32_t pointer;
+        bool ownsBuffer;
 };

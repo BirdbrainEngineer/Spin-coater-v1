@@ -54,11 +54,11 @@ MenuItem InformationMenuItems[] = {
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@ Menus @@@@@@@@@@@@@@@@@@@@@@@@
 
-Menu mainMenu = Menu(5, mainMenuItems);
-Menu QuickstartMenu = Menu(2, QuickstartMenuItems);
-Menu JobsMenu = Menu(3, JobsMenuItems);
-Menu TestMenu = Menu(4, TestMenuItems);
-Menu CalibrationMenu = Menu(4, CalibrationMenuItems);
-Menu InformationMenu = Menu(3, InformationMenuItems);
+Menu mainMenu = Menu(mainMenuItems);
+Menu QuickstartMenu = Menu(QuickstartMenuItems);
+Menu JobsMenu = Menu(JobsMenuItems);
+Menu TestMenu = Menu(TestMenuItems);
+Menu CalibrationMenu = Menu(CalibrationMenuItems);
+Menu InformationMenu = Menu(InformationMenuItems);
 
 
