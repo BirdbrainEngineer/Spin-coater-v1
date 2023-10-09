@@ -6,15 +6,28 @@ enum MenuItemType{
     FUNC,
 };
 
+enum MenuControlSignal{
+    IDLE,
+    SELECT,
+    RETRACT,
+    MOVEUP,
+    MOVEDOWN,
+};
+
 struct MenuItem{
     char* name;
     MenuItemType type;
-    void* (*enter)();
-    void* (*exit)();
+    void* (*call)();
 };
 struct MenuData{
     u8_t size;
     MenuItem* items;
+};
+
+struct MenuContext{
+    u8_t numItems;
+    u8_t itemSelected;
+    char* name;
 };
 
 class Menu {
@@ -32,12 +45,14 @@ class Menu {
 
 class MenuController{
     public:
-        MenuController(Menu* mainMenu);
+        MenuContext currentMenuContext;
+        MenuController(Menu* (*mainMenuConstructor)());
         ~MenuController();
+        bool init(u8_t maxMenuDepth, void (*errorHandler)() = nullptr);
+        MenuContext update(MenuControlSignal signal);
     private:
-        Menu* mainMenu;
-        Menu* currentMenu;
-        Menu* menuStack[sizeof(u8_t)];
-        u8_t stackPointer[sizeof(u8_t)];
-        u8_t stackDepth;
+        Menu* (*mainMenuConstructor)();
+        Menu** menuStack;
+        u8_t* stackPointer;
+        u8_t currentStackDepth;
 };

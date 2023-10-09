@@ -1,18 +1,20 @@
 #include <main.h>
+#include <SpinnerMenuItems.h>
+#include <SpinnerMenu.h>
 
 #define cstr(x) const_cast<char*>(x)
 
 MenuItem mainMenuItems[] = {
-    {cstr("Quick start"), MENU, quickStartMenuConstructor, askStoreProgrammed},
-    {cstr("Jobs"), MENU, jobsMenuConstructor, nullptr},
-    {cstr("Test"), MENU, testMenuConstructor, nullptr},
-    {cstr("Calibration"), MENU, calibrationMenuConstructor, nullptr},
-    {cstr("Information"), MENU, informationMenuConstructor, nullptr},
+    {cstr("Quick start"), MENU, quickStartMenuConstructor},
+    {cstr("Jobs"), MENU, jobsMenuConstructor},
+    {cstr("Test"), MENU, testMenuConstructor},
+    {cstr("Calibration"), MENU, calibrationMenuConstructor},
+    {cstr("Information"), MENU, informationMenuConstructor},
 };
 
 MenuItem QuickstartMenuItems[] = {
-      {cstr("Programmed"), FUNC, runProgrammed, nullptr},
-      {cstr("Analog"), FUNC, runAnalog, nullptr},
+      {cstr("Programmed"), FUNC, runProgrammed},
+      {cstr("Analog"), FUNC, runAnalog},
 };
 
 MenuItem JobsMenuItems[] = {
@@ -29,10 +31,10 @@ MenuItem TestMenuItems[] = {
 };
 
 MenuItem CalibrationMenuItems[] = {
-      {cstr("Automatic"), FUNC, &automaticCalibration, nullptr},
-      {cstr("Set Kp"), FUNC, &setKp, nullptr},
-      {cstr("Set Ki"), FUNC, &setKi, nullptr},
-      {cstr("Set Kd"), FUNC, &setKd, nullptr},
+      {cstr("Automatic"), FUNC, automaticCalibration},
+      {cstr("Set Kp"), FUNC, setKp},
+      {cstr("Set Ki"), FUNC, setKi},
+      {cstr("Set Kd"), FUNC, setKd},
 };
 
 MenuItem InformationMenuItems[] = {
@@ -41,11 +43,20 @@ MenuItem InformationMenuItems[] = {
       {cstr("LICENSE")},
 };
 
-//@@@@@@@@@@@@@@@@@@@@@@@@@@@ Menus @@@@@@@@@@@@@@@@@@@@@@@@
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@ Static Menus @@@@@@@@@@@@@@@@@@@@@@@@
+Menu mainMenu = Menu(mainMenuItems);
+Menu quickStartMenu = Menu(QuickstartMenuItems);
+Menu jobsMenu = Menu(JobsMenuItems);
+Menu testMenu = Menu(TestMenuItems);
+Menu calibrationMenu = Menu(CalibrationMenuItems);
+Menu informationMenu = Menu(InformationMenuItems);
 
-void* mainMenuConstructor() { return (void*)new Menu(mainMenuItems); }
-void* quickStartMenuConstructor(){ return (void*)new Menu(QuickstartMenuItems); }
-void* JobsMenuConstructor() { return (void*)new Menu(JobsMenuItems); }
-void* TestMenuConstructor() { return (void*)new Menu(TestMenuItems); }
-void* CalibrationMenuConstructor() { return (void*)new Menu(CalibrationMenuItems); }
-void* InformationMenuconstructor() { return (void*)new Menu(InformationMenuItems); }
+
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@ Menu constructors @@@@@@@@@@@@@@@@@@@@@@@@
+
+void* mainMenuConstructor() { return &mainMenu; }
+void* quickStartMenuConstructor(){ return &quickStartMenu; }
+void* jobsMenuConstructor() { return &jobsMenu; }
+void* testMenuConstructor() { return &testMenu; }
+void* calibrationMenuConstructor() { return &calibrationMenu; }
+void* informationMenuConstructor() { return &informationMenu; }

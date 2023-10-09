@@ -80,7 +80,6 @@ volatile bool PID_enabled = false;
 volatile float rpmTarget = 3333.0;
 volatile double currentRPM = 0.0;
 volatile float dutyCycle = 0.0;
-volatile SpinnerState currentState = SpinnerState::IDLE;
 volatile Config config = {0.0, 0.0, 0.0};
 volatile Config storedConfig = {0.0, 0.0, 0.0};
 
@@ -93,6 +92,7 @@ File myFile;
 LiquidCrystal lcd = LiquidCrystal(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7);
 BBkeypad* keypad;
 TextBuffer* buffer;
+MenuController menuController;
 char inputBuffer[inputBufferSize];
 bool cursorBlinker = false;
 unsigned long inputBufferIndex = 0;
@@ -116,12 +116,12 @@ volatile unsigned long microsSinceLastRpmCount = 0;
 volatile bool newRpmData = false;
 
 
+
 // ========================= Core 0 ========================================
 void setup() {
   pinMode(spinner_running_led_pin, OUTPUT);
 
   keypad = new BBkeypad((char*)keys, keypadCols, keypadRows, colPins, rowPins);
-  buffer = new TextBuffer(inputBuffer, inputBufferSize);
   lcd.begin(16, 2);
   lcd.print("Initializing...");
 

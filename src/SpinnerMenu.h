@@ -1,4 +1,5 @@
 #pragma once
+#include <main.h>
 
 
 extern LiquidCrystal lcd;
@@ -14,20 +15,17 @@ extern char DOT;
 
 void* runProgrammed();
 void* runAnalog();
-void* askStoreProgrammed();
-
-
 
 void* automaticCalibration();
 void* setKp();
 void* setKi();
 void* setKd();
 
+void* askStoreProgrammed();
 
 void* setUserVariable(char* displayText, float* variable);
 void* setUserVariable(const char* displayText, float* variable);
 
-//@@@@@@@@@@@@@@@@@@@@@@@ Static Menu Items @@@@@@@@@@@@@@@@@@@@@
 
 
 

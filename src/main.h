@@ -17,12 +17,6 @@
 
 
 // ===========================Declarations==================================
-enum SpinnerState {
-  IDLE,
-  RUN_PID,
-  RUN_ANALOG,
-  FAULT,
-};
 struct Config {
   float Kp;
   float Ki;
