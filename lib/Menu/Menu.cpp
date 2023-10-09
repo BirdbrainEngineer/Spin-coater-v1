@@ -1,6 +1,6 @@
 #include <Menu.h>
 
-Menu::Menu(MenuData* menuDataConstructor()){
+Menu::Menu(MenuData menuDataConstructor()){
     this->menuDataConstructor = menuDataConstructor;
     ownsItems = true;
 }
@@ -22,7 +22,7 @@ void Menu::populate(){
         if(items != nullptr){
             free(items);
         }
-        MenuData data = *(menuDataConstructor)();
+        MenuData data = (menuDataConstructor)();
         this->size = data.size;
         this->items = data.items;
     }

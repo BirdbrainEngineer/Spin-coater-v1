@@ -1,10 +1,16 @@
+#pragma once
 #include <Arduino.h>
 
+enum MenuItemType{
+    MENU,
+    FUNC,
+};
 
 struct MenuItem{
     char* name;
-    void* enter;
-    void* exit;
+    MenuItemType type;
+    void* (*enter)();
+    void* (*exit)();
 };
 struct MenuData{
     u8_t size;
@@ -15,13 +21,13 @@ class Menu {
     public:
         u8_t size;
         MenuItem* items;
-        Menu(MenuData* menuDataConstructor());
+        Menu(MenuData menuDataConstructor());
         Menu(MenuItem* items);
         ~Menu();
         void populate();
     private:
         bool ownsItems;
-        MenuData* (*menuDataConstructor)();
+        MenuData (*menuDataConstructor)();
 };
 
 class MenuController{

@@ -1,19 +1,4 @@
 #include <main.h>
-#include <Arduino.h>
-#include <LiquidCrystal.h>
-#include <SD.h>
-#include <SPI.h>
-#include <RP2040_PWM.h>
-#include <RPi_Pico_TimerInterrupt.h>
-#include <PID_controller.h>
-#include <BBkeypad.h>
-#include <TextBuffer.h>
-#include <ArduinoJson.h>
-#include <SpinnerCore.h>
-
-
-
-class PID_controller;
 
 // =====================Device information constants========================
 const char DEVICE_NAME[] = "BB Spin Coater\nv0.1.0";
@@ -56,54 +41,38 @@ const int spinner_running_led_pin = 26;
 const int manual_rpm_fine_adjust_pin = 27;
 const int manual_rpm_coarse_adjust_pin = 28;
 
-// ===========================Declarations==================================
-enum SpinnerState {
-  IDLE,
-  RUN_PID,
-  RUN_ANALOG,
-  FAULT,
-};
-struct Config {
-  float Kp;
-  float Ki;
-  float Kd;
-};
-void tachInterrupt();
-bool analogInterrupt(struct repeating_timer *t);
-void processInput(Key inputKey);
-
-void loadConfiguration(volatile Config &config);
-void saveConfiguration(volatile Config &config);
-
 
 // ========================Program constants================================
 const float motorPWMFrequency = 25000.0;
 const int analogInterruptInterval = 100;
 const float controllerMinOutput = 12.0;
 const float controllerMaxOutput = 100.0;
-const unsigned long inputBufferSize = 16;
+const u16_t inputBufferSize = 16;
 const long tachometerDebounceInterval = 800;
-const u8_t keyPadRows = 4;
-const u8_t keyPadCols = 4;
-char keys[keyPadRows][keyPadCols] = {
+const u8_t keypadRows = 4;
+const u8_t keypadCols = 4;
+const char keys[keypadRows][keypadCols] = {
   {'1','2','3','A'},
   {'4','5','6','B'},
   {'7','8','9','C'},
   {'*','0','#','D'}
 };
-const char ENTER = '#';
-const char BACK = '*';
-const char UP = 'C';
-const char DOWN = 'D';
-const char YES = 'A';
-const char NO = 'B';
-const u8_t rowPins[keyPadRows] = {membrane_row_0_pin, membrane_row_1_pin, membrane_row_2_pin, membrane_row_3_pin};
-const u8_t colPins[keyPadCols] = {membrane_col_0_pin, membrane_col_1_pin, membrane_col_2_pin, membrane_col_3_pin};
+char ENTER = '#';
+char BACK = '*';
+char UP = 'C';
+char DOWN = 'D';
+char YES = 'A';
+char NO = 'B';
+char DOT = 'A';
+const u8_t rowPins[keypadRows] = {membrane_row_0_pin, membrane_row_1_pin, membrane_row_2_pin, membrane_row_3_pin};
+const u8_t colPins[keypadCols] = {membrane_col_0_pin, membrane_col_1_pin, membrane_col_2_pin, membrane_col_3_pin};
 const unsigned int keypadDebounceInterval = 10;
 const unsigned long coreLoopInterval = 500; //in micros
-volatile const float analogAlpha = 0.01;
-volatile const float rpmAlpha = 0.2;
+volatile float analogAlpha = 0.01;
+volatile float rpmAlpha = 0.2;
 const Config defaultConfig = {0.3, 0.004, 0.0};
+
+
 
 // =========================Inter-Core variables==============================
 volatile float manualDutyCycle = 0.0;
@@ -116,9 +85,10 @@ volatile Config config = {0.0, 0.0, 0.0};
 volatile Config storedConfig = {0.0, 0.0, 0.0};
 
 
-//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Core-0  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 // ========================Core-specific variables===========================
+
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Core-0  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 File myFile;
 LiquidCrystal lcd = LiquidCrystal(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7);
 BBkeypad* keypad;
@@ -130,19 +100,36 @@ bool memoryGood = true;
 
 
 
-// ========================= Code ========================================
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Core-1  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+RP2040_PWM* motorDriver;
+PID_controller pidController;
+RPI_PICO_Timer ITimer3(3);
+bool motorEnabled = false;
+unsigned long core1Timer = 0;
+unsigned long core1Loops = 0;
+
+// =======================Interrupt variables=================================
+volatile unsigned long rpmTimer = 0;
+volatile float analogAverage = 0.01;
+volatile unsigned long microsSinceLastRpmCount = 0;
+volatile bool newRpmData = false;
+
+
+// ========================= Core 0 ========================================
 void setup() {
   pinMode(spinner_running_led_pin, OUTPUT);
 
-  keypad = new BBkeypad((char*)keys, keyPadCols, keyPadRows, colPins, rowPins);
+  keypad = new BBkeypad((char*)keys, keypadCols, keypadRows, colPins, rowPins);
   buffer = new TextBuffer(inputBuffer, inputBufferSize);
   lcd.begin(16, 2);
   lcd.print("Initializing...");
 
   if (!SD.begin(17)) {
-    printlcdErrorMsg("SD card\nnot found!");
+    printlcdErrorMsg("SD card not\nfound!");
     memoryGood = false;
-    printlcdErrorMsg("Functionality");
+    printlcdErrorMsg(" Functionality\nhighly limited!");
+    // todo: enable limited menu
   }
   else {
     // Checks whether Jobs directory exists, if not, creates it. If a file with the same name exists, deletes it
@@ -160,48 +147,19 @@ void setup() {
     else{
       SD.mkdir("/jobs");
     }
+    loadConfiguration(config);
+    // todo: enable main menu
   }
-  loadConfiguration(config);
 
   digitalWrite(spinner_running_led_pin, LOW);
 }
 
 void loop() {
-  cursorBlinker = !cursorBlinker;
-  cursorBlinker ? lcd.cursor() : lcd.noCursor();
-  if(keypad->poll()){
-    if(keypad->getKeysWithState(KeyState::KEY_DOWN) > 0){
-      processInput(keypad->buffer[0]);
-    }
-  }
-  lcd.clear();
-  lcd.print(dutyCycle, 2);
-  lcd.print(" rpm:");
-  lcd.print(currentRPM, 2);
-  lcd.setCursor(0, 1);
-  lcd.print(inputBuffer);
-  delay(200);
+  
 }
 
 
-//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Core-1  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
-// =======================Interrupt variables=================================
-volatile unsigned long rpmTimer = 0;
-volatile float analogAverage = 0.01;
-volatile unsigned long microsSinceLastRpmCount = 0;
-volatile bool newRpmData = false;
-
-// ======================Core-specific variables==============================
-RP2040_PWM* motorDriver;
-PID_controller pidController;
-RPI_PICO_Timer ITimer3(3);
-bool motorEnabled = false;
-unsigned long core1Timer = 0;
-unsigned long core1Loops = 0;
-
-
-// ==============================Code=====================================
+// ============================== Core 1 =====================================
 void setup1() {
   motorDriver = new RP2040_PWM(motor_pwm_pin, motorPWMFrequency, 0.0);
   pidController = PID_controller(config.Kp, config.Ki, config.Kd, controllerMinOutput, controllerMaxOutput);
@@ -255,40 +213,6 @@ bool analogInterrupt(struct repeating_timer *t){
 
 // @@@@@@@@@@@@@@@@@@@@@@@@@  Functions @@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-void processInput(Key inputKey){
-  char key = inputKey.key;
-  switch (key){
-    case '#':   rpmTarget = (float)atoi(inputBuffer);
-                inputBufferIndex = 0;
-                inputBuffer[inputBufferIndex] = '\0';
-                break;
-
-    case '*':   buffer->popBack();
-                break;
-
-    case 'A':   PID_enabled = false;
-                break;
-
-    case 'B':   PID_enabled = true;
-                break;
-
-    case 'C':   config.Kp = (float)atof(inputBuffer);
-                inputBufferIndex = 0;
-                inputBuffer[inputBufferIndex] = '\0';
-                break;
-
-    case 'D' :  if(inputBufferIndex < (inputBufferSize - 1)){
-                  inputBuffer[inputBufferIndex] = '.';
-                  inputBufferIndex++; 
-                  inputBuffer[inputBufferIndex] = '\0';
-                }
-                break;
-
-    default:    buffer->pushBack(key);
-                break;
-  }
-}
-
 void reboot(uint32_t delay){
   watchdog_reboot(0, 0, delay);
   while(true){}
@@ -321,29 +245,7 @@ void printlcd(char* text){
 }
 
 void printlcd(const char* text){
-  u8_t pointer = 0;
-  u8_t bufPointer = 0;
-  u8_t cursorPointer = 0; 
-  char buf[50];
-  lcd.clear();
-  for(int i = 0; i < 50; i++){
-    switch(text[i]){
-      case '\n':  buf[bufPointer] = '\0';
-                  lcd.print(buf);
-                  cursorPointer++;
-                  lcd.setCursor(0, cursorPointer);
-                  bufPointer = 0;
-                  pointer++;
-                  break;
-      case '\0':  buf[bufPointer] = '\0';
-                  lcd.print(buf);
-                  return;
-      default:    buf[bufPointer] = text[i];
-                  bufPointer++;
-                  pointer++;
-                  break;
-    }
-  }
+  printlcd(const_cast<char*>(text));
 }
 
 void loadConfiguration(volatile Config &config) {
@@ -400,13 +302,5 @@ void printlcdErrorMsg(char* text){
 }
 
 void printlcdErrorMsg(const char* text){
-  printlcd(text);
-  while(true){
-    keypad->pollBlocking();
-    if(keypad->getPressedKeys() > 0){
-      if(keypad->buffer[0].key == ENTER || keypad->buffer[0].key == BACK){
-        return;
-      }
-    }
-  }
+  printlcdErrorMsg(const_cast<char*>(text));
 }

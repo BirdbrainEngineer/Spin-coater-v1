@@ -8,8 +8,8 @@ BBkeypad::BBkeypad(char* keys, const u8_t numColumns, const u8_t numRows, const 
     this->numColumns = numColumns;
     this->debounceInterval = DEFAULT_DEBOUNCE_INTERVAL;
     this->holdTime = DEFAULT_HOLD_TIME;
-    this->keypad = new Key[numRows * numColumns];
-    this->buffer = new Key[numRows * numColumns];
+    this->keypad = (Key*)malloc(sizeof(Key) * (numRows * numColumns));
+    this->buffer = (Key*)malloc(sizeof(Key) * (numRows * numColumns));
     this->columnPins = columnPins;
     this->rowPins = rowPins;
     for(int i = 0; i < this->numColumns; i++){
@@ -121,6 +121,20 @@ void BBkeypad::pollBlocking(){
     while(!this->poll());
 }
 
+u16_t BBkeypad::pollState(KeyState state){
+    if(this->poll()){
+        return this->getKeysWithState(state);
+    }
+    return 0;
+}
+
+u16_t BBkeypad::pollStateBlocking(KeyState state){
+    while(true){
+        u16_t keys = this->pollState(state);
+        if(keys > 0){ return keys; }
+    }
+}
+
 unsigned long BBkeypad::getSize(){
     return ((sizeof(Key) * (this->numRows * this->numColumns * 2)) + 
     (sizeof(unsigned long) * 2) + 
@@ -136,8 +150,8 @@ void BBkeypad::setDebounceInterval(unsigned long debounceInterval){
     this->debounceInterval = debounceInterval;
 }
 
-unsigned int BBkeypad::getKeysWithState(KeyState state){
-    int bufferIndex = 0;
+u16_t BBkeypad::getKeysWithState(KeyState state){
+    u16_t bufferIndex = 0;
     for(int i = 0; i < (this->numColumns * this->numRows); i++){
         if(this->keypad[i].state == state){
             this->buffer[bufferIndex] = this->keypad[i];
@@ -147,8 +161,8 @@ unsigned int BBkeypad::getKeysWithState(KeyState state){
     return bufferIndex;
 }
 
-unsigned int BBkeypad::getPressedKeys(){
-    int bufferIndex = 0;
+u16_t BBkeypad::getPressedKeys(){
+    u16_t bufferIndex = 0;
     for(int i = 0; i < (this->numColumns * this->numRows); i++){
         if(this->keypad[i].state == KeyState::KEY_DOWN || 
             this->keypad[i].state == KeyState::PRESSED || 

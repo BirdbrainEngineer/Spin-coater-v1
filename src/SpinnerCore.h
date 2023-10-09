@@ -1,6 +1,4 @@
-#include <Arduino.h>
-#include <SD.h>
-#include <SPI.h>
+#pragma once
 
 enum SpinnerTask{
     NONE,
@@ -22,12 +20,14 @@ class SpinnerJob{
         u8_t index;
         float currentTargetRpm;
         bool sequenceEdited;
+        bool stopped;
 
         SpinnerJob();
         SpinnerJob(u8_t size);
         ~SpinnerJob();
-        void start();
+        bool start();
         bool update();
+        void stop();
         void reset();
         bool pushAction(SpinnerAction action);
         bool addAction(u8_t index, SpinnerAction action);

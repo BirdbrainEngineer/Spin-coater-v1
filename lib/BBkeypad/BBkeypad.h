@@ -1,3 +1,4 @@
+#pragma once
 #include <Arduino.h>
 
 enum class KeyState {
@@ -27,7 +28,7 @@ class BBkeypad {
         const unsigned long DEFAULT_DEBOUNCE_INTERVAL = 50UL; // Default debounce interval in milliseconds
         const unsigned long DEFAULT_HOLD_TIME = 1000UL; // Default hold time in milliseconds
 
-        Key* buffer; // Buffer used by some functions. Garbage in indexes past the index returned by the relevant function.
+        Key* buffer; // Buffer to store keys with recently changed states. Holds garbage past the current 'count' - 1
 
         BBkeypad();
         BBkeypad(char* keys, const u8_t numColumns, const u8_t numRows, const u8_t* columnPins, const u8_t* rowPins);
@@ -36,8 +37,10 @@ class BBkeypad {
         void setHoldTime(unsigned long holdTime); // Sets the time interval it takes for a key to transition from 'PRESSED' to 'HELD'.
         void setDebounceInterval(unsigned long debounceInterval); // Sets the debounce interval in milliseconds, minimum 1.
         bool poll(); // Polls the keypad for key press changes. Returns 'true' if any key's state has changed.
+        u16_t pollState(KeyState state); // Polls the keypad for key press changes. Returns 'true' only if there is at least one key's state matching the parameter KeyState.
         void pollBlocking(); // Polls the keypad as long as it takes for any key's state to change. This function blocks all other code until a key's state changes!
-        unsigned int getKeysWithState(KeyState state); // Places all the keys with the specified state into the buffer and returns the number of keys in the buffer.
-        unsigned int getPressedKeys(); // Places all the keys that are currently pressed down ('KEY_DOWN', 'PRESSED', 'HELD' states) into the buffer and returns the number of keys in the buffer.
+        u16_t pollStateBlocking(KeyState state); //polls the keypad as long as it takes for any key's state to change into the specified KeyState.
+        u16_t getKeysWithState(KeyState state); // Places all the keys with the specified state into the buffer and returns the number of keys in the buffer.
+        u16_t getPressedKeys(); // Places all the keys that are currently pressed down ('KEY_DOWN', 'PRESSED', 'HELD' states) into the buffer and returns the number of keys in the buffer.
         
 };

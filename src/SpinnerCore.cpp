@@ -1,4 +1,3 @@
-#include <SpinnerCore.h>
 #include <main.h>
 
 SpinnerJob::SpinnerJob(){
@@ -13,12 +12,17 @@ SpinnerJob::~SpinnerJob(){
     free(this->sequence);
 }
 
-void SpinnerJob::start(){
+bool SpinnerJob::start(){ //returns false if the job could not be started
+    if(this->sequence[this->sequenceLength - 1].task != END){ return false; }
+    startMotor();
+    this->stopped = false;
     this->previousTransitionTime = millis();
     this->nextTransitionTime = this->previousTransitionTime + this->sequence[0].duration;
+    return true;
 }
 
 bool SpinnerJob::update(){ //returns false if the job has finished
+    if(this->stopped){ return false; }
     unsigned long currentTime = millis();
     if(currentTime > nextTransitionTime){
         this->previousRpm =this->sequence[this->index].rpm;
@@ -39,16 +43,22 @@ bool SpinnerJob::update(){ //returns false if the job has finished
 
         case END:   stopMotor();
                     this->currentTargetRpm = 0.0;
+                    this->stopped = true;
                     return false;
 
-        case NONE:  stopMotor();
-                    printlcdErrorMsg("Illegal\nSpinnerAction!");
-                    return false;
+        case NONE:  this->nextTransitionTime = this->previousTransitionTime;
+                    return this->update();
 
         default:    stopMotor();
-                    printlcdErrorMsg("Unknown\nSpinnerAction!");
+                    this->stopped = true;
+                    printlcdErrorMsg("    Illegal\nSpinnerAction!");
                     return false;
     }
+}
+
+void SpinnerJob::stop(){
+    stopMotor();
+    this->stopped = true;
 }
 
 void SpinnerJob::reset(){
@@ -81,7 +91,7 @@ bool SpinnerJob::addAction(u8_t index, SpinnerAction action){
 void SpinnerJob::init(u8_t size){
     this->sequence = (SpinnerAction*)malloc(sizeof(SpinnerAction) * UINT8_MAX);
     if(this->sequence == nullptr){
-        printlcdErrorMsg("Out of memory!\nReboot imminent!");
+        printlcdErrorMsg(" Out of memory!\nReboot imminent!");
         reboot(100);
         while(true);
     }
@@ -91,4 +101,5 @@ void SpinnerJob::init(u8_t size){
     this->nextTransitionTime = 0;
     this->previousRpm = 0.0;
     this->sequenceEdited = false;
+    this->stopped = true;
 }
