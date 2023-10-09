@@ -10,8 +10,8 @@ enum MenuControlSignal{
     IDLE,
     SELECT,
     RETRACT,
-    MOVEUP,
-    MOVEDOWN,
+    PREVITEM,
+    NEXTITEM,
 };
 
 struct MenuItem{
@@ -34,12 +34,12 @@ class Menu {
     public:
         u8_t size;
         MenuItem* items;
+        bool ownsItems;
         Menu(MenuData menuDataConstructor());
         Menu(MenuItem* items);
         ~Menu();
         void populate();
     private:
-        bool ownsItems;
         MenuData (*menuDataConstructor)();
 };
 
@@ -55,4 +55,5 @@ class MenuController{
         Menu** menuStack;
         u8_t* stackPointer;
         u8_t currentStackDepth;
+        MenuItem* getMenuItemAtPointer();
 };

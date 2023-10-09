@@ -4,7 +4,7 @@
 
 #define cstr(x) const_cast<char*>(x)
 
-MenuItem mainMenuItems[] = {
+MenuItem mainMenuItems[5] = {
     {cstr("Quick start"), MENU, quickStartMenuConstructor},
     {cstr("Jobs"), MENU, jobsMenuConstructor},
     {cstr("Test"), MENU, testMenuConstructor},
@@ -12,35 +12,35 @@ MenuItem mainMenuItems[] = {
     {cstr("Information"), MENU, informationMenuConstructor},
 };
 
-MenuItem QuickstartMenuItems[] = {
+MenuItem QuickstartMenuItems[2] = {
       {cstr("Programmed"), FUNC, runProgrammed},
       {cstr("Analog"), FUNC, runAnalog},
 };
 
-MenuItem JobsMenuItems[] = {
-      {cstr("Load job")},
-      {cstr("Create job")},
-      {cstr("Delete job")},
+MenuItem JobsMenuItems[3] = {
+      {cstr("Load job"), FUNC, nullptr},
+      {cstr("Create job"), FUNC, nullptr},
+      {cstr("Delete job"), FUNC, nullptr},
 };
 
-MenuItem TestMenuItems[] = {
-      {cstr("Combined")},
-      {cstr("Acceleration")},
-      {cstr("Speed")},
-      {cstr("PID")},
+MenuItem TestMenuItems[4] = {
+      {cstr("Combined"), FUNC, nullptr},
+      {cstr("Acceleration"), FUNC, nullptr},
+      {cstr("Speed"), FUNC, nullptr},
+      {cstr("PID"), FUNC, nullptr},
 };
 
-MenuItem CalibrationMenuItems[] = {
+MenuItem CalibrationMenuItems[4] = {
       {cstr("Automatic"), FUNC, automaticCalibration},
       {cstr("Set Kp"), FUNC, setKp},
       {cstr("Set Ki"), FUNC, setKi},
       {cstr("Set Kd"), FUNC, setKd},
 };
 
-MenuItem InformationMenuItems[] = {
-      {cstr("Firmware\nversion")},
-      {cstr("Hardware\nversion")},
-      {cstr("LICENSE")},
+MenuItem InformationMenuItems[3] = {
+      {cstr("Firmware\nversion"), FUNC, nullptr},
+      {cstr("Hardware\nversion"), FUNC, nullptr},
+      {cstr("LICENSE"), FUNC, nullptr},
 };
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@ Static Menus @@@@@@@@@@@@@@@@@@@@@@@@
@@ -54,7 +54,7 @@ Menu informationMenu = Menu(InformationMenuItems);
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@ Menu constructors @@@@@@@@@@@@@@@@@@@@@@@@
 
-void* mainMenuConstructor() { return &mainMenu; }
+Menu* mainMenuConstructor() { return &mainMenu; }
 void* quickStartMenuConstructor(){ return &quickStartMenu; }
 void* jobsMenuConstructor() { return &jobsMenu; }
 void* testMenuConstructor() { return &testMenu; }

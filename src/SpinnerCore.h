@@ -1,5 +1,7 @@
 #pragma once
 
+extern volatile bool motorEnabled;
+
 enum SpinnerTask{
     NONE,
     HOLD,

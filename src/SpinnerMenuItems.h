@@ -1,6 +1,6 @@
 #pragma once
 
-void* mainMenuConstructor();
+Menu* mainMenuConstructor();
 void* quickStartMenuConstructor();
 void* jobsMenuConstructor();
 void* testMenuConstructor();

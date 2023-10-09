@@ -26,10 +26,10 @@ struct Config {
 void tachInterrupt();
 bool analogInterrupt(struct repeating_timer *t);
 
-void startMotor();
-void stopMotor();
-
+void reboot();
 void reboot(u32_t delay);
+void rebootWithText(u32_t delay, char* text);
+void rebootWithText(u32_t delay, const char* text);
 
 void printlcd(char* text);
 void printlcd(const char* text);
@@ -38,3 +38,8 @@ void printlcdErrorMsg(const char* text);
 
 void loadConfiguration(volatile Config &config);
 void saveConfiguration(volatile Config &config);
+
+void enableMotor();
+void disableMotor();
+
+void renderMenuContext(MenuContext menuContext);

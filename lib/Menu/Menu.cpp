@@ -6,7 +6,7 @@ Menu::Menu(MenuData menuDataConstructor()){
 }
 
 Menu::Menu(MenuItem* items){
-    this->size = (sizeof items) / (sizeof *items); //(sizeof *items) gives size of only a single element
+    this->size = 5;//sizeof(items) / sizeof(items[0]); 
     this->items = items;
     this->ownsItems = false;
 }
@@ -52,6 +52,10 @@ bool MenuController::init(u8_t maxMenuDepth, void (*errorHandler)()) {
     this->menuStack[0]->populate();
     this->stackPointer[0] = 0;
     this->currentStackDepth = 0;
+    this->currentMenuContext;
+    this->currentMenuContext.numItems = this->menuStack[this->currentStackDepth]->size;
+    this->currentMenuContext.itemSelected = this->stackPointer[this->currentStackDepth] + 1;
+    this->currentMenuContext.name = this->getMenuItemAtPointer()->name;
     return true;
 }
 MenuContext MenuController::update(MenuControlSignal signal){
@@ -59,19 +63,18 @@ MenuContext MenuController::update(MenuControlSignal signal){
         case IDLE:      return this->currentMenuContext;
 
         case SELECT:    {
-                            MenuItem* selectedMenuItem = &this->menuStack[this->currentStackDepth]->items[this->stackPointer[this->currentStackDepth]];
-                            switch(selectedMenuItem->type){
+                            switch(this->getMenuItemAtPointer()->type){
                                 case FUNC:  {
-                                                selectedMenuItem->call();
+                                                this->getMenuItemAtPointer()->call();
                                                 this->menuStack[this->currentStackDepth]->populate();
-                                                if(this->menuStack[this->currentStackDepth]->size >= this->stackPointer[this->currentStackDepth]){
+                                                if(this->menuStack[this->currentStackDepth]->size <= this->stackPointer[this->currentStackDepth]){
                                                     this->stackPointer[this->currentStackDepth] = 0;
                                                 }
                                                 break;
                                             }   
 
                                 case MENU:  {
-                                                Menu* newMenu = (Menu*)selectedMenuItem->call();
+                                                Menu* newMenu = (Menu*)this->getMenuItemAtPointer()->call();
                                                 if(newMenu == nullptr){ break; }
                                                 this->currentStackDepth++;
                                                 this->menuStack[this->currentStackDepth] = newMenu;
@@ -86,15 +89,20 @@ MenuContext MenuController::update(MenuControlSignal signal){
                         }
 
         case RETRACT:   {
-                            delete this->menuStack[this->currentStackDepth];
-                            this->menuStack[this->currentStackDepth] = nullptr;
-                            this->stackPointer[this->currentStackDepth] = 0;
-                            this->currentStackDepth--;
-                            this->menuStack[this->currentStackDepth]->populate();
-                            break;
+                            if(this->currentStackDepth > 0){
+                                if(this->menuStack[this->currentStackDepth]->ownsItems){
+                                    delete this->menuStack[this->currentStackDepth];
+                                }
+                                this->menuStack[this->currentStackDepth] = nullptr;
+                                this->stackPointer[this->currentStackDepth] = 0;
+                                this->currentStackDepth--;
+                                this->menuStack[this->currentStackDepth]->populate();
+                                break;
+                            }
+                            this->stackPointer[0] = 0;
                         }
 
-        case MOVEUP:    {
+        case PREVITEM:    {
                             this->stackPointer[this->currentStackDepth] =   
                                 this->stackPointer[this->currentStackDepth] == 0 ?
                                 this->menuStack[this->currentStackDepth]->size - 1 :
@@ -102,16 +110,20 @@ MenuContext MenuController::update(MenuControlSignal signal){
                             break;
                         }
 
-        case MOVEDOWN:  {
+        case NEXTITEM:  {
                             this->stackPointer[this->currentStackDepth] =   
-                                this->stackPointer[this->currentStackDepth] == (this->menuStack[this->currentStackDepth]->size - 1) ?
+                                (this->stackPointer[this->currentStackDepth] == (this->menuStack[this->currentStackDepth]->size - 1)) ?
                                 0 :
                                 this->stackPointer[this->currentStackDepth] + 1;
                             break;
                         }
     }
-    this->currentMenuContext.itemSelected = this->stackPointer[this->currentStackDepth];
+    this->currentMenuContext.itemSelected = this->stackPointer[this->currentStackDepth] + 1;
     this->currentMenuContext.name = this->menuStack[this->currentStackDepth]->items[this->stackPointer[this->currentStackDepth]].name;
     this->currentMenuContext.numItems = this->menuStack[this->currentStackDepth]->size;
     return this->currentMenuContext;
+}
+
+MenuItem* MenuController::getMenuItemAtPointer(){
+    return &this->menuStack[this->currentStackDepth]->items[this->stackPointer[this->currentStackDepth]];
 }

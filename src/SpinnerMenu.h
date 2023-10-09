@@ -11,6 +11,11 @@ extern char DOWN;
 extern char YES;;
 extern char NO;
 extern char DOT;
+extern volatile bool pidEnabled;
+extern volatile float analogDutyCycle;
+extern volatile float pidDutyCycle;
+extern volatile bool motorEnabled;
+extern volatile double currentRPM;
 
 
 void* runProgrammed();
@@ -25,6 +30,8 @@ void* askStoreProgrammed();
 
 void* setUserVariable(char* displayText, float* variable);
 void* setUserVariable(const char* displayText, float* variable);
+
+bool pollKeypadForSpecificCharPressed(char c);
 
 
 

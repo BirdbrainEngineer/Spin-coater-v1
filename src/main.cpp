@@ -75,14 +75,14 @@ const Config defaultConfig = {0.3, 0.004, 0.0};
 
 
 // =========================Inter-Core variables==============================
-volatile float manualDutyCycle = 0.0;
-volatile bool PID_enabled = false;
+volatile float analogDutyCycle = 0.0;
+volatile bool pidEnabled = false;
 volatile float rpmTarget = 3333.0;
 volatile double currentRPM = 0.0;
-volatile float dutyCycle = 0.0;
+volatile float pidDutyCycle = 0.0;
 volatile Config config = {0.0, 0.0, 0.0};
 volatile Config storedConfig = {0.0, 0.0, 0.0};
-
+volatile bool motorEnabled = false;
 
 
 // ========================Core-specific variables===========================
@@ -91,9 +91,7 @@ volatile Config storedConfig = {0.0, 0.0, 0.0};
 File myFile;
 LiquidCrystal lcd = LiquidCrystal(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7);
 BBkeypad* keypad;
-TextBuffer* buffer;
-MenuController menuController;
-char inputBuffer[inputBufferSize];
+MenuController* menuController;
 bool cursorBlinker = false;
 unsigned long inputBufferIndex = 0;
 bool memoryGood = true;
@@ -105,7 +103,7 @@ bool memoryGood = true;
 RP2040_PWM* motorDriver;
 PID_controller pidController;
 RPI_PICO_Timer ITimer3(3);
-bool motorEnabled = false;
+SWtimer* coreLoop;
 unsigned long core1Timer = 0;
 unsigned long core1Loops = 0;
 
@@ -119,11 +117,12 @@ volatile bool newRpmData = false;
 
 // ========================= Core 0 ========================================
 void setup() {
-  pinMode(spinner_running_led_pin, OUTPUT);
-
-  keypad = new BBkeypad((char*)keys, keypadCols, keypadRows, colPins, rowPins);
   lcd.begin(16, 2);
   lcd.print("Initializing...");
+
+  keypad = new BBkeypad((char*)keys, keypadCols, keypadRows, colPins, rowPins);
+  menuController = new MenuController(mainMenuConstructor);
+  menuController->init(10, reboot);
 
   if (!SD.begin(17)) {
     printlcdErrorMsg("SD card not\nfound!");
@@ -150,12 +149,24 @@ void setup() {
     loadConfiguration(config);
     // todo: enable main menu
   }
-
-  digitalWrite(spinner_running_led_pin, LOW);
 }
 
 void loop() {
-  
+  lcd.clear();
+  MenuControlSignal menuSignal = IDLE;
+  MenuContext menuContext = menuController->update(menuSignal);
+  renderMenuContext(menuContext);
+  while(true){
+    keypad->pollStateBlocking(KeyState::KEY_DOWN);
+    char key = keypad->buffer[0].key;
+    if(key == ENTER){ menuSignal = SELECT; }
+    else if(key == BACK){ menuSignal = RETRACT; }
+    else if(key == UP){ menuSignal = PREVITEM; }
+    else if(key == DOWN){ menuSignal = NEXTITEM; }
+    else{ menuSignal = IDLE; }
+    menuContext = menuController->update(menuSignal);
+    renderMenuContext(menuContext);
+  }
 }
 
 
@@ -163,9 +174,13 @@ void loop() {
 void setup1() {
   motorDriver = new RP2040_PWM(motor_pwm_pin, motorPWMFrequency, 0.0);
   pidController = PID_controller(config.Kp, config.Ki, config.Kd, controllerMinOutput, controllerMaxOutput);
+  coreLoop = new SWtimer(coreLoopInterval, true);
 
   pinMode(spinner_power_enable_pin, OUTPUT);
+  pinMode(spinner_running_led_pin, OUTPUT);
   pinMode(tachometer_pin, INPUT_PULLUP);
+
+  disableMotor();
 
   attachInterrupt(tachometer_pin, tachInterrupt, CHANGE);
   rpmTimer = micros();
@@ -176,15 +191,23 @@ void setup1() {
   ITimer3.attachInterruptInterval(analogInterruptInterval, analogInterrupt);
   core1Timer = micros();
   interrupts();
+  coreLoop->start();
 }
 
 void loop1() {
-  unsigned int loopInterval = coreLoopInterval;
   while(true){
-    while((micros() - core1Timer) < loopInterval){}
-    core1Timer = micros();
-    core1Loops++;
-
+    if(coreLoop->poll()){
+      if(motorEnabled){
+        float currentDutyCycle;
+        if(pidEnabled){
+          currentDutyCycle = pidDutyCycle;
+        }
+        else{
+          currentDutyCycle = analogDutyCycle;
+        }
+        motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, currentDutyCycle);
+      }
+    }
   }
 }
 
@@ -207,7 +230,7 @@ bool analogInterrupt(struct repeating_timer *t){
   reading = reading > 65535 ? 65535 : (reading < 0 ? 0 : reading);
   float analogNewAverage = ((float)(reading) * analogAlpha) + (analogAverage * (1.0 - analogAlpha));
   analogAverage = analogNewAverage;
-  manualDutyCycle = analogNewAverage * 0.0015259;
+  analogDutyCycle = analogNewAverage * 0.0015259;
   return true;
 }
 
@@ -216,6 +239,16 @@ bool analogInterrupt(struct repeating_timer *t){
 void reboot(uint32_t delay){
   watchdog_reboot(0, 0, delay);
   while(true){}
+}
+void reboot(){
+  reboot(10);
+}
+void rebootWithText(uint32_t delay, char* text){
+  printlcdErrorMsg(text);
+  reboot(delay);
+}
+void rebootWithText(uint32_t delay, const char* text){
+  rebootWithText(delay, const_cast<char*>(text));
 }
 
 void printlcd(char* text){
@@ -303,4 +336,26 @@ void printlcdErrorMsg(char* text){
 
 void printlcdErrorMsg(const char* text){
   printlcdErrorMsg(const_cast<char*>(text));
+}
+
+void renderMenuContext(MenuContext menuContext){
+  lcd.clear();
+  lcd.print(menuContext.name);
+  lcd.setCursor(0, 1);
+  lcd.print(menuContext.itemSelected);
+  lcd.print("/");
+  lcd.print(menuContext.numItems);
+}
+
+void enableMotor(){
+  digitalWrite(spinner_running_led_pin, HIGH);
+  digitalWrite(spinner_power_enable_pin, HIGH);
+  motorEnabled = true;
+}
+
+void disableMotor(){
+  motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 0);
+  digitalWrite(spinner_running_led_pin, LOW);
+  digitalWrite(spinner_power_enable_pin, LOW);
+  motorEnabled = false;
 }
