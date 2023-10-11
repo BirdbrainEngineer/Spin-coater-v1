@@ -35,7 +35,7 @@ class Menu {
         u8_t size;
         MenuItem* items;
         bool ownsItems;
-        Menu(MenuData menuDataConstructor());
+        Menu(MenuData (*menuDataConstructor)());
         Menu(MenuItem* items);
         ~Menu();
         void populate();

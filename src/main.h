@@ -43,3 +43,5 @@ void enableMotor();
 void disableMotor();
 
 void renderMenuContext(MenuContext menuContext);
+
+void panicIfOOM(void* pointer);

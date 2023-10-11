@@ -15,6 +15,8 @@ class TextBuffer{
         char popFront();
         bool pushMid(char c, u32_t index);
         char popMid(u32_t index);
+        bool pushString(const char* str);
+        bool pushString(char* str);
         char readFront();
         char readMid(u32_t index);
         char readBack();

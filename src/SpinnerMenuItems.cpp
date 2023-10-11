@@ -18,30 +18,33 @@ MenuItem QuickstartMenuItems[2] = {
 };
 
 MenuItem JobsMenuItems[3] = {
-      {cstr("Load job"), FUNC, nullptr},
-      {cstr("Create job"), FUNC, nullptr},
-      {cstr("Delete job"), FUNC, nullptr},
+      {cstr("Load job"), MENU, loadJobMenuConstructor},
+      {cstr("Create job"), MENU, createJobMenuConstructor},
+      {cstr("Delete job"), MENU, deleteJobMenuConstructor},
 };
 
 MenuItem TestMenuItems[4] = {
-      {cstr("Combined"), FUNC, nullptr},
-      {cstr("Acceleration"), FUNC, nullptr},
-      {cstr("Speed"), FUNC, nullptr},
-      {cstr("PID"), FUNC, nullptr},
+      {cstr("Combined"), FUNC, testCombined},
+      {cstr("Acceleration"), FUNC, testAcceleration},
+      {cstr("Speed"), FUNC, testSpeed},
+      {cstr("PID"), FUNC, testPID},
 };
 
-MenuItem CalibrationMenuItems[4] = {
+MenuItem CalibrationMenuItems[6] = {
       {cstr("Automatic"), FUNC, automaticCalibration},
       {cstr("Set Kp"), FUNC, setKp},
       {cstr("Set Ki"), FUNC, setKi},
       {cstr("Set Kd"), FUNC, setKd},
+      {cstr("Analog-in alpha"), FUNC, setAnalogAlpha},
+      {cstr("RPM alpha"), FUNC, setRpmAlpha},
 };
 
 MenuItem InformationMenuItems[3] = {
-      {cstr("Firmware\nversion"), FUNC, nullptr},
-      {cstr("Hardware\nversion"), FUNC, nullptr},
-      {cstr("LICENSE"), FUNC, nullptr},
+      {cstr("Device info."), FUNC, displayDeviceInformation},
+      {cstr("HARDWARE LICENSE"), FUNC, displayLicenseCC},
+      {cstr("SOFTWARE LICENSE"), FUNC, displayLicenseMIT},
 };
+
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@ Static Menus @@@@@@@@@@@@@@@@@@@@@@@@
 Menu mainMenu = Menu(mainMenuItems);
@@ -52,7 +55,7 @@ Menu calibrationMenu = Menu(CalibrationMenuItems);
 Menu informationMenu = Menu(InformationMenuItems);
 
 
-//@@@@@@@@@@@@@@@@@@@@@@@@@@@ Menu constructors @@@@@@@@@@@@@@@@@@@@@@@@
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@ Static menu constructors @@@@@@@@@@@@@@@@@@@@@@@@
 
 Menu* mainMenuConstructor() { return &mainMenu; }
 void* quickStartMenuConstructor(){ return &quickStartMenu; }
@@ -60,3 +63,14 @@ void* jobsMenuConstructor() { return &jobsMenu; }
 void* testMenuConstructor() { return &testMenu; }
 void* calibrationMenuConstructor() { return &calibrationMenu; }
 void* informationMenuConstructor() { return &informationMenu; }
+
+
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@ Dynamic menu constructors @@@@@@@@@@@@@@@@@@@@@@@@
+
+void* programmingMenuConstructor(){
+    
+}
+
+void* loadJobMenuConstructor(){return jobsMenuConstructor(loadJob);}
+void* createJobMenuConstructor(){return jobsMenuConstructor(createJob);}
+void* deleteJobMenuConstructor(){return jobsMenuConstructor(deleteJob);}

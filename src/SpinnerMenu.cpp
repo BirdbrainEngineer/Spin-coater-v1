@@ -1,5 +1,9 @@
 #include <SpinnerMenu.h>
 
+void* jobsMenuConstructor(void* (*callFunc)()){
+    
+}
+
 void* runProgrammed(){
     pidEnabled = true;
     return nullptr;

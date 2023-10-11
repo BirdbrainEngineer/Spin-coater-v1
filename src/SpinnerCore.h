@@ -17,15 +17,14 @@ struct SpinnerAction{
 
 class SpinnerJob{
     public:
+        char* name;
         SpinnerAction* sequence;
         u8_t sequenceLength;
         u8_t index;
         float currentTargetRpm;
-        bool sequenceEdited;
         bool stopped;
 
-        SpinnerJob();
-        SpinnerJob(u8_t size);
+        SpinnerJob(char* name);
         ~SpinnerJob();
         bool start();
         bool update();
@@ -39,4 +38,20 @@ class SpinnerJob{
         unsigned long previousTransitionTime;
         float previousRpm;
         void init(u8_t size);
+};
+
+class JobTable{
+    public:
+        u8_t numJobs;
+        JobTable(const char* repositoryPath);
+        ~JobTable();
+        void loadJobs();
+        void setRepositoryPath(const char* path);
+        SpinnerJob* getJob(int index);
+        int exists(char* name);
+        bool addJob(SpinnerJob* job);
+        bool removeJob(int index);
+    private:
+        char* repositoryPath;
+        SpinnerJob** jobs;
 };

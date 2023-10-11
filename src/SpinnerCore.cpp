@@ -1,21 +1,19 @@
 #include <main.h>
 
-SpinnerJob::SpinnerJob(){
+SpinnerJob::SpinnerJob(char* name){
+    this->name = name;
     this->init(0);
-}
-
-SpinnerJob::SpinnerJob(u8_t size){
-    this->init(size);
 }
 
 SpinnerJob::~SpinnerJob(){
     free(this->sequence);
+    free(this->name);
 }
 
 bool SpinnerJob::start(){ //returns false if the job could not be started
     if(this->sequence[this->sequenceLength - 1].task != END){ return false; }
-    motorEnabled = true;
     this->stopped = false;
+    enableMotor();
     this->previousTransitionTime = millis();
     this->nextTransitionTime = this->previousTransitionTime + this->sequence[0].duration;
     return true;
@@ -41,7 +39,7 @@ bool SpinnerJob::update(){ //returns false if the job has finished
                         return true;
                     }
 
-        case END:   motorEnabled = false;
+        case END:   disableMotor();
                     this->currentTargetRpm = 0.0;
                     this->stopped = true;
                     return false;
@@ -49,7 +47,7 @@ bool SpinnerJob::update(){ //returns false if the job has finished
         case NONE:  this->nextTransitionTime = this->previousTransitionTime;
                     return this->update();
 
-        default:    motorEnabled = false;
+        default:    disableMotor();
                     this->stopped = true;
                     printlcdErrorMsg("    Illegal\nSpinnerAction!");
                     return false;
@@ -57,7 +55,7 @@ bool SpinnerJob::update(){ //returns false if the job has finished
 }
 
 void SpinnerJob::stop(){
-    motorEnabled = false;
+    disableMotor();
     this->stopped = true;
 }
 
@@ -74,7 +72,6 @@ bool SpinnerJob::pushAction(SpinnerAction action){
     this->sequence[this->sequenceLength].rpm = action.rpm;
     this->sequence[this->sequenceLength].task = action.task;
     this->sequenceLength++;
-    this->sequenceEdited = true;
     return true;
 }
 
@@ -84,22 +81,61 @@ bool SpinnerJob::addAction(u8_t index, SpinnerAction action){
     this->sequence[index].duration = action.duration;
     this->sequence[index].rpm = action.rpm;
     this->sequence[index].task = action.task;
-    this->sequenceEdited = true;
     return true;
 }
 
 void SpinnerJob::init(u8_t size){
     this->sequence = (SpinnerAction*)malloc(sizeof(SpinnerAction) * UINT8_MAX);
-    if(this->sequence == nullptr){
-        printlcdErrorMsg(" Out of memory!\nReboot imminent!");
-        reboot(100);
-        while(true);
-    }
+    panicIfOOM(this->sequence);
     this->sequenceLength = size;
     this->index = 0;
     this->currentTargetRpm = 0.0;
     this->nextTransitionTime = 0;
     this->previousRpm = 0.0;
-    this->sequenceEdited = false;
     this->stopped = true;
+}
+
+
+
+//@@@@@@@@@@@@@@@@@@@@@ JobTable @@@@@@@@@@@@@@@@@@@@@@@@@
+
+JobTable::JobTable(const char* repositoryPath){
+    this->repositoryPath = const_cast<char*>(repositoryPath);
+    this->jobs = (SpinnerJob**)malloc(sizeof(SpinnerJob*) * UINT8_MAX);
+    panicIfOOM(this->jobs);
+    this->numJobs = 0;
+}
+JobTable::~JobTable(){
+    free(this->jobs);
+}
+void JobTable::setRepositoryPath(const char* path){
+    this->repositoryPath = const_cast<char*>(path);
+}
+SpinnerJob* JobTable::getJob(int index){
+    if(index < 0 || index >= this->numJobs){ return nullptr; }
+    return this->jobs[index];
+}
+int JobTable::exists(char* name){
+    for(int i = 0; i < this->numJobs; i++){
+        if(strcmp(this->jobs[i]->name, name) == 0){
+            return i;
+        }
+    }
+    return -1;
+}
+bool JobTable::addJob(SpinnerJob* job){
+    if(this->numJobs == UINT8_MAX){ return false; }
+    this->jobs[this->numJobs] = job;
+    this->numJobs++;
+    return true;
+}
+bool JobTable::removeJob(int index){
+    if(index < 0 || index >= this->numJobs){ return false; }
+    free(this->jobs[index]);
+    while(index < this->numJobs){
+        this->jobs[index] = this->jobs[index + 1];
+        index++;
+    }
+    this->numJobs--;
+    return true;
 }

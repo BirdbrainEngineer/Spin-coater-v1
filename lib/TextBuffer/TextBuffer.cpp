@@ -95,6 +95,22 @@ char TextBuffer::popMid(u32_t index){
     }
 }
 
+bool TextBuffer::pushString(const char* str){
+    return this->pushString(const_cast<char*>(str));
+}
+
+bool TextBuffer::pushString(char* str){
+    u32_t inputPointer = 0;
+    while(str[inputPointer] != '\0'){
+        if(this->pointer != bufferLen - 1){
+            this->pushBack(str[inputPointer]);
+            inputPointer++;
+        }
+        else { return false; }
+    }
+    return true;
+}
+
 char TextBuffer::readFront(){
     return buffer[0];
 }

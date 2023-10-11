@@ -17,6 +17,11 @@ extern volatile float pidDutyCycle;
 extern volatile bool motorEnabled;
 extern volatile double currentRPM;
 
+void* jobsMenuConstructor(void* (*callFunc)());
+void* loadJob();
+void* createJob();
+void* deleteJob();
+void* jobCreator();
 
 void* runProgrammed();
 void* runAnalog();

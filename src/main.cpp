@@ -71,6 +71,10 @@ const unsigned long coreLoopInterval = 500; //in micros
 volatile float analogAlpha = 0.01;
 volatile float rpmAlpha = 0.2;
 const Config defaultConfig = {0.3, 0.004, 0.0};
+const char jobsPath[] = "/jobs/";
+const char jobsFolderPath[] = "/jobs";
+const char configFilePath[] = "/config";
+const u8_t maxFileNameLength = 16;
 
 
 
@@ -92,6 +96,7 @@ File myFile;
 LiquidCrystal lcd = LiquidCrystal(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7);
 BBkeypad* keypad;
 MenuController* menuController;
+JobTable* jobTable;
 bool cursorBlinker = false;
 unsigned long inputBufferIndex = 0;
 bool memoryGood = true;
@@ -119,35 +124,46 @@ volatile bool newRpmData = false;
 void setup() {
   lcd.begin(16, 2);
   lcd.print("Initializing...");
+  lcd.setCursor(0, 1);
+  lcd.print("Init keypad...   ");
 
   keypad = new BBkeypad((char*)keys, keypadCols, keypadRows, colPins, rowPins);
-  menuController = new MenuController(mainMenuConstructor);
-  menuController->init(10, reboot);
 
   if (!SD.begin(17)) {
     printlcdErrorMsg("SD card not\nfound!");
     memoryGood = false;
     printlcdErrorMsg(" Functionality\nhighly limited!");
-    // todo: enable limited menu
   }
   else {
     // Checks whether Jobs directory exists, if not, creates it. If a file with the same name exists, deletes it
-    if(SD.exists("/jobs")){
-      myFile = SD.open("/jobs");
+    if(SD.exists(jobsFolderPath)){
+      myFile = SD.open(jobsFolderPath);
       if(myFile.isDirectory()){
         myFile.close();
       }
       else{
         myFile.close();
-        SD.remove("/jobs");
-        SD.mkdir("/jobs");
+        SD.remove(jobsFolderPath);
+        SD.mkdir(jobsFolderPath);
       }
     }
     else{
-      SD.mkdir("/jobs");
+      SD.mkdir(jobsFolderPath);
     }
     loadConfiguration(config);
-    // todo: enable main menu
+  }
+
+  lcd.setCursor(0, 1);
+  lcd.print("Init menu...     ");
+  if(memoryGood){
+    menuController = new MenuController(mainMenuConstructor);
+    menuController->init(10, reboot);
+    lcd.setCursor(0, 1);
+    lcd.print("Init jobs...     ");
+    jobTable = new JobTable(jobsFolderPath);
+  }
+  else{
+    //todo: init reduced menu
   }
 }
 
@@ -282,11 +298,11 @@ void printlcd(const char* text){
 }
 
 void loadConfiguration(volatile Config &config) {
-  File file = SD.open("/config.txt");
+  File file = SD.open(configFilePath);
   if (!file) {
     printlcdErrorMsg("Missing the\nconfig file!");
     saveConfiguration(config);
-    printlcdErrorMsg("Using default\nconfig.");
+    printlcdErrorMsg("Using default\nconfiguration.");
     return;
   }
 
@@ -294,7 +310,8 @@ void loadConfiguration(volatile Config &config) {
   DeserializationError error = deserializeJson(doc, file);
   if (error){
     printlcdErrorMsg("Failed to\ndeserialize data!");
-    printlcdErrorMsg("Using default\nconfig.");
+    printlcdErrorMsg("Using default\nconfiguration.");
+    file.close();
     return;
   }
   config.Kp = doc["Kp"];
@@ -305,8 +322,8 @@ void loadConfiguration(volatile Config &config) {
 
 // Saves the configuration to a file
 void saveConfiguration(volatile Config &config) {
-  SD.remove("/config.txt");
-  File file = SD.open("/config.txt", FILE_WRITE);
+  SD.remove(configFilePath);
+  File file = SD.open(configFilePath, FILE_WRITE);
   if (!file) {
     printlcdErrorMsg("Failed to make\nconfig file!");
     return;
@@ -358,4 +375,12 @@ void disableMotor(){
   digitalWrite(spinner_running_led_pin, LOW);
   digitalWrite(spinner_power_enable_pin, LOW);
   motorEnabled = false;
+}
+
+void panicIfOOM(void* pointer){
+  if(pointer == nullptr){
+      printlcdErrorMsg(" Out of memory!\nReboot imminent!");
+      reboot(100);
+      while(true);
+  }
 }
