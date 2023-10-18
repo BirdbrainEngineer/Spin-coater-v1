@@ -1,12 +1,17 @@
 #pragma once
 
-Menu* mainMenuConstructor();
-void* quickStartMenuConstructor();
-void* jobsMenuConstructor();
-void* testMenuConstructor();
-void* calibrationMenuConstructor();
-void* informationMenuConstructor();
+extern JobTable* jobTable;
 
-void* loadJobMenuConstructor();
-void* createJobMenuConstructor();
-void* deleteJobMenuConstructor();
+Menu* mainMenuConstructor();
+void* quickStartMenuConstructor(char* caller);
+void* jobsMenuConstructor(char* caller);
+void* testMenuConstructor(char* caller);
+void* calibrationMenuConstructor(char* caller);
+void* informationMenuConstructor(char* caller);
+
+void* runJobsMenuConstructor(char* caller);
+void* createJobMenuConstructor(char* caller);
+void* deleteJobMenuConstructor(char* caller);
+
+MenuData runJobsMenuForge();
+MenuData deleteJobsMenuForge();

@@ -131,6 +131,10 @@ bool TextBuffer::isEmpty(){
     return pointer == 0 ? true : false;
 }
 
+bool TextBuffer::isFull(){
+    return pointer == bufferLen ? true : false;
+}
+
 void TextBuffer::clear(){
     pointer = 0;
     buffer[0] = '\0';

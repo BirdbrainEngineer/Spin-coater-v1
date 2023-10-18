@@ -1,4 +1,13 @@
 #pragma once
+
+struct Config {
+  float Kp;
+  float Ki;
+  float Kd;
+  float analogAlpha;
+  float rpmAlpha;
+};
+
 #include <Arduino.h>
 #include <LiquidCrystal.h>
 #include <SD.h>
@@ -15,14 +24,6 @@
 #include <SpinnerMenu.h>
 #include <SpinnerMenuItems.h>
 
-
-// ===========================Declarations==================================
-struct Config {
-  float Kp;
-  float Ki;
-  float Kd;
-};
-
 void tachInterrupt();
 bool analogInterrupt(struct repeating_timer *t);
 
@@ -30,6 +31,10 @@ void reboot();
 void reboot(u32_t delay);
 void rebootWithText(u32_t delay, char* text);
 void rebootWithText(u32_t delay, const char* text);
+
+bool askYesNo(char* text);
+bool askYesNo(const char* text);
+bool pollKeypadForSpecificCharPressed(char c);
 
 void printlcd(char* text);
 void printlcd(const char* text);
@@ -41,7 +46,11 @@ void saveConfiguration(volatile Config &config);
 
 void enableMotor();
 void disableMotor();
+SpinnerJob* loadJob(File file);
+bool getUserInput(TextBuffer* str, bool numeric = false);
 
 void renderMenuContext(MenuContext menuContext);
 
-void panicIfOOM(void* pointer);
+void panicIfOOM(void* pointer, const char* errorText);
+
+bool setUserVariable(const char* displayText, float* variable);

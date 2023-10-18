@@ -1,6 +1,7 @@
 #pragma once
+#include <main.h>
 
-extern volatile bool motorEnabled;
+extern const u8_t maxJobNameLength;
 
 enum SpinnerTask{
     NONE,
@@ -23,6 +24,7 @@ class SpinnerJob{
         u8_t index;
         float currentTargetRpm;
         bool stopped;
+        Config config; 
 
         SpinnerJob(char* name);
         ~SpinnerJob();
@@ -30,14 +32,17 @@ class SpinnerJob{
         bool update();
         void stop();
         void reset();
+        void addConfig(Config config);
+        Config* getConfig();
         bool pushAction(SpinnerAction action);
         bool addAction(u8_t index, SpinnerAction action);
+        void init(u8_t size);
+        void changeName(char* newName);
 
     private:
         unsigned long nextTransitionTime;
         unsigned long previousTransitionTime;
         float previousRpm;
-        void init(u8_t size);
 };
 
 class JobTable{
@@ -51,6 +56,7 @@ class JobTable{
         int exists(char* name);
         bool addJob(SpinnerJob* job);
         bool removeJob(int index);
+        bool isEmpty();
     private:
         char* repositoryPath;
         SpinnerJob** jobs;

@@ -21,6 +21,7 @@ class TextBuffer{
         char readMid(u32_t index);
         char readBack();
         bool isEmpty();
+        bool isFull();
         void clear();
         void erase();
     private:

@@ -65,7 +65,7 @@ MenuContext MenuController::update(MenuControlSignal signal){
         case SELECT:    {
                             switch(this->getMenuItemAtPointer()->type){
                                 case FUNC:  {
-                                                this->getMenuItemAtPointer()->call();
+                                                this->getMenuItemAtPointer()->call(this->getMenuItemAtPointer()->name);
                                                 this->menuStack[this->currentStackDepth]->populate();
                                                 if(this->menuStack[this->currentStackDepth]->size <= this->stackPointer[this->currentStackDepth]){
                                                     this->stackPointer[this->currentStackDepth] = 0;
@@ -74,7 +74,7 @@ MenuContext MenuController::update(MenuControlSignal signal){
                                             }   
 
                                 case MENU:  {
-                                                Menu* newMenu = (Menu*)this->getMenuItemAtPointer()->call();
+                                                Menu* newMenu = (Menu*)this->getMenuItemAtPointer()->call(this->getMenuItemAtPointer()->name);
                                                 if(newMenu == nullptr){ break; }
                                                 this->currentStackDepth++;
                                                 this->menuStack[this->currentStackDepth] = newMenu;

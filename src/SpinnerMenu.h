@@ -16,28 +16,32 @@ extern volatile float analogDutyCycle;
 extern volatile float pidDutyCycle;
 extern volatile bool motorEnabled;
 extern volatile double currentRPM;
+extern volatile Config config;
+extern JobTable* jobTable;
 
-void* jobsMenuConstructor(void* (*callFunc)());
-void* loadJob();
-void* createJob();
-void* deleteJob();
-void* jobCreator();
 
-void* runProgrammed();
-void* runAnalog();
 
-void* automaticCalibration();
-void* setKp();
-void* setKi();
-void* setKd();
+void* deleteJob(char* jobName);
+void* runJob(char* jobName);
 
-void* askStoreProgrammed();
+void* runProgrammed(char* caller);
+void* runAnalog(char* caller);
 
-void* setUserVariable(char* displayText, float* variable);
-void* setUserVariable(const char* displayText, float* variable);
+void* automaticCalibration(char* caller);
+void* setKp(char* caller);
+void* setKi(char* caller);
+void* setKd(char* caller);
+void* setAnalogAlpha(char* caller);
+void* setRpmAlpha(char* caller);
+void* doNothing(char*caller);
+void* searchJobForRunning(char* caller);
+void* searchJobForDeletion(char* caller);
 
-bool pollKeypadForSpecificCharPressed(char c);
+void* askStoreProgrammed(char* caller);
 
+void* createJob(char* caller);
+
+SpinnerJob* jobCreation(bool askForName);
 
 
 

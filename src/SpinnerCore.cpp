@@ -1,13 +1,19 @@
 #include <main.h>
 
 SpinnerJob::SpinnerJob(char* name){
-    this->name = name;
-    this->init(0);
+    this->name = (char*)malloc(sizeof(char) * maxJobNameLength);
+    panicIfOOM(this->name, "@SpinnerJob-name");
+    int i = 0;
+    while(name[i] != '\0' && i < maxJobNameLength - 1){
+        this->name[i] = name[i];
+        i++;
+    }
+    this->name[maxJobNameLength - 1] = '\0';
 }
 
 SpinnerJob::~SpinnerJob(){
-    free(this->sequence);
     free(this->name);
+    if(this->sequence != nullptr){free(this->sequence);}
 }
 
 bool SpinnerJob::start(){ //returns false if the job could not be started
@@ -85,14 +91,38 @@ bool SpinnerJob::addAction(u8_t index, SpinnerAction action){
 }
 
 void SpinnerJob::init(u8_t size){
-    this->sequence = (SpinnerAction*)malloc(sizeof(SpinnerAction) * UINT8_MAX);
-    panicIfOOM(this->sequence);
+    this->sequence = (SpinnerAction*)malloc(sizeof(SpinnerAction) * size);
+    panicIfOOM(this->sequence, "@SpinnerJob-sequence");
     this->sequenceLength = size;
     this->index = 0;
     this->currentTargetRpm = 0.0;
     this->nextTransitionTime = 0;
     this->previousRpm = 0.0;
     this->stopped = true;
+}
+
+void SpinnerJob::addConfig(Config config){
+    this->config.Kd = config.Kd;
+    this->config.Ki = config.Ki;
+    this->config.Kp = config.Kp;
+    this->config.analogAlpha = config.analogAlpha;
+    this->config.rpmAlpha = config.rpmAlpha;
+}
+
+Config* SpinnerJob::getConfig(){
+    return &this->config;
+}
+
+void SpinnerJob::changeName(char* newName){
+    free(this->name);
+    this->name = (char*)malloc(sizeof(char) * maxJobNameLength);
+    panicIfOOM(this->name, "@SpinnerJob-name");
+    int i = 0;
+    while(name[i] != '\0' && i < maxJobNameLength - 1){
+        this->name[i] = name[i];
+        i++;
+    }
+    this->name[maxJobNameLength - 1] = '\0';
 }
 
 
@@ -102,10 +132,13 @@ void SpinnerJob::init(u8_t size){
 JobTable::JobTable(const char* repositoryPath){
     this->repositoryPath = const_cast<char*>(repositoryPath);
     this->jobs = (SpinnerJob**)malloc(sizeof(SpinnerJob*) * UINT8_MAX);
-    panicIfOOM(this->jobs);
+    panicIfOOM(this->jobs, "@:JobTable-jobs");
     this->numJobs = 0;
 }
 JobTable::~JobTable(){
+    for(int i = 0; i < this->numJobs; i++){
+        free(this->jobs[i]);
+    }
     free(this->jobs);
 }
 void JobTable::setRepositoryPath(const char* path){
@@ -138,4 +171,8 @@ bool JobTable::removeJob(int index){
     }
     this->numJobs--;
     return true;
+}
+
+bool JobTable::isEmpty(){
+    return this->numJobs == 0 ? true : false;
 }

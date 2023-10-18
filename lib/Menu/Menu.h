@@ -17,7 +17,7 @@ enum MenuControlSignal{
 struct MenuItem{
     char* name;
     MenuItemType type;
-    void* (*call)();
+    void* (*call)(char* caller);
 };
 struct MenuData{
     u8_t size;

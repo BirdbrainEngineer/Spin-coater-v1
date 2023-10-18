@@ -75,7 +75,7 @@ const char jobsPath[] = "/jobs/";
 const char jobsFolderPath[] = "/jobs";
 const char configFilePath[] = "/config";
 const u8_t maxFileNameLength = 16;
-
+const u8_t maxJobNameLength = 9;
 
 
 // =========================Inter-Core variables==============================
@@ -129,6 +129,9 @@ void setup() {
 
   keypad = new BBkeypad((char*)keys, keypadCols, keypadRows, colPins, rowPins);
 
+
+  lcd.setCursor(0, 1);
+  lcd.print("Init memory...   ");
   if (!SD.begin(17)) {
     printlcdErrorMsg("SD card not\nfound!");
     memoryGood = false;
@@ -161,6 +164,16 @@ void setup() {
     lcd.setCursor(0, 1);
     lcd.print("Init jobs...     ");
     jobTable = new JobTable(jobsFolderPath);
+    auto jobsDirectory = SD.open(jobsFolderPath);
+    while(true){
+      auto file = jobsDirectory.openNextFile();
+      if(!file){ break; }
+      SpinnerJob* job = loadJob(file);
+      if(job == nullptr){ printlcdErrorMsg("Error loading\na job file!"); }
+      else{
+        if(!jobTable->addJob(job)){ printlcdErrorMsg("Too many jobs\nsaved to memory!"); }
+      }
+    }
   }
   else{
     //todo: init reduced menu
@@ -333,7 +346,7 @@ void saveConfiguration(volatile Config &config) {
   doc["Kp"] = config.Kp;
   doc["Ki"] = config.Ki;
   doc["Kd"] = config.Kd;
-  if (serializeJson(doc, file) == 0) {
+  if (serializeJsonPretty(doc, file) == 0) {
     printlcdErrorMsg("Failed to\nserialize data!");
   }
   file.close();
@@ -377,10 +390,145 @@ void disableMotor(){
   motorEnabled = false;
 }
 
-void panicIfOOM(void* pointer){
+void panicIfOOM(void* pointer, const char* errorText){
   if(pointer == nullptr){
-      printlcdErrorMsg(" Out of memory!\nReboot imminent!");
-      reboot(100);
-      while(true);
+    char errorMsg[40] = "Out of memory!\n";
+    printlcdErrorMsg(strcat(errorMsg, errorText));
+    printlcdErrorMsg("Reboot imminent!");
+    reboot(100);
+    while(true);
   }
+}
+
+SpinnerJob* loadJob(File file){
+  SpinnerJob* job = new SpinnerJob(file.name());
+  if(rp2040.getFreeHeap() < 15000 || job == nullptr){ rebootWithText(100, "Out of memory!\n@:_loadJob"); }
+  DynamicJsonDocument doc(15000);
+  DeserializationError error = deserializeJson(doc, file);
+  if(error){
+    delete job;
+    doc.~BasicJsonDocument();
+    printlcdErrorMsg("Failed to load\nthe job!");
+    return nullptr;
+  }
+  int length = doc["length"];
+  job->init(length);
+  Config jobConfig = {
+    .Kp = doc["Kp"],
+    .Ki = doc["Ki"],
+    .Kd = doc["Kd"],
+    .analogAlpha = doc["analogAlpha"],
+    .rpmAlpha = doc["rpmAlpha"]
+  };
+  job->addConfig(jobConfig);
+  for(int i = 0; i < length; i++){
+    job->sequence[i].duration = doc["sequence"][i]["duration"];
+    job->sequence[i].task = doc["sequence"][i]["task"];
+    job->sequence[i].rpm = doc["sequence"][i]["rpm"];
+  }
+  doc.~BasicJsonDocument();
+  return job;
+}
+
+bool askYesNo(char* text){
+  lcd.clear();
+  printlcd(text);
+  while(true){
+    keypad->pollBlocking();
+    if(keypad->getKeysWithState(KeyState::KEY_DOWN) > 0){
+      if(keypad->buffer[0].key == YES){
+        return true;
+      }
+      else if(keypad->buffer[0].key == NO || keypad->buffer[0].key == BACK){
+        return false;
+      }
+    }
+  }
+}
+
+bool askYesNo(const char* text){
+  return askYesNo(const_cast<char*>(text));
+}
+
+bool pollKeypadForSpecificCharPressed(char c){
+  keypad->poll();
+  if(keypad->getKeysWithState(KeyState::KEY_DOWN)){
+    if(keypad->buffer[0].key == c){
+      return true;
+    }
+  }
+  return false;
+}
+
+bool getUserInput(TextBuffer* str, bool numeric){
+  lcd.setCursor(0, 1);
+  lcd.print("                ");
+  lcd.setCursor(0, 1);
+  lcd.cursor();
+  while(true){
+    keypad->pollStateBlocking(KeyState::KEY_DOWN);
+    char key = keypad->buffer[0].key;
+    if(key == ENTER){
+      lcd.noCursor();
+      return str->isEmpty()? false : true;
+    }
+    else if(key == BACK){
+      if(str->isEmpty()){ lcd.noCursor(); return false; }  
+      else{ str->popBack(); }
+    }
+    else{
+      if(numeric){
+        if(key == DOT){
+          str->pushBack('.');
+        }
+        else if(key >= '0' && key <= '9'){
+          str->pushBack(key);
+        }
+      }
+      else {
+        str->pushBack(keypad->buffer[0].key);
+      }
+    }
+    lcd.setCursor(0, 1);
+    lcd.print("                ");
+    lcd.setCursor(0, 1);
+    lcd.print(str->buffer);
+  }
+}
+
+bool setUserVariable(const char* displayText, float* variable){
+    TextBuffer* textBuffer = new TextBuffer(17);
+    lcd.clear();
+    lcd.print(displayText);
+    while(true){
+        lcd.setCursor(0, 1);
+        if(keypad->pollStateBlocking(KeyState::KEY_DOWN) > 0){
+            char key = keypad->buffer[0].key;
+            if(key == ENTER){
+                if(textBuffer->isEmpty()){ 
+                    delete textBuffer;
+                    return false; 
+                }
+                *variable = (float)atof(textBuffer->buffer);
+                delete textBuffer;
+                return true;
+            }
+            else if(key == BACK){
+                if(textBuffer->isEmpty()){ 
+                    delete textBuffer;
+                    return false; 
+                }
+                textBuffer->popBack();
+            }
+            else if(key == DOT){
+                textBuffer->pushBack('.');
+            }
+            else{
+                if(key >= '0' && key <= '9'){
+                    textBuffer->pushBack(key);
+                }
+            }
+        }
+        lcd.print(textBuffer->buffer);
+    }
 }

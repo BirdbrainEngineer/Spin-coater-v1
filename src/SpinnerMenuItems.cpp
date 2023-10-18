@@ -18,8 +18,8 @@ MenuItem QuickstartMenuItems[2] = {
 };
 
 MenuItem JobsMenuItems[3] = {
-      {cstr("Load job"), MENU, loadJobMenuConstructor},
-      {cstr("Create job"), MENU, createJobMenuConstructor},
+      {cstr("Load job"), MENU, runJobsMenuConstructor},
+      {cstr("Create job"), MENU, createJob},
       {cstr("Delete job"), MENU, deleteJobMenuConstructor},
 };
 
@@ -45,6 +45,9 @@ MenuItem InformationMenuItems[3] = {
       {cstr("SOFTWARE LICENSE"), FUNC, displayLicenseMIT},
 };
 
+MenuItem emptyMenuItems[1] = {
+      {cstr("Nothing here!"), FUNC, doNothing},
+};
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@ Static Menus @@@@@@@@@@@@@@@@@@@@@@@@
 Menu mainMenu = Menu(mainMenuItems);
@@ -54,23 +57,61 @@ Menu testMenu = Menu(TestMenuItems);
 Menu calibrationMenu = Menu(CalibrationMenuItems);
 Menu informationMenu = Menu(InformationMenuItems);
 
+Menu emptyMenu = Menu(emptyMenuItems);
+
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@ Static menu constructors @@@@@@@@@@@@@@@@@@@@@@@@
 
-Menu* mainMenuConstructor() { return &mainMenu; }
-void* quickStartMenuConstructor(){ return &quickStartMenu; }
-void* jobsMenuConstructor() { return &jobsMenu; }
-void* testMenuConstructor() { return &testMenu; }
-void* calibrationMenuConstructor() { return &calibrationMenu; }
-void* informationMenuConstructor() { return &informationMenu; }
+Menu* mainMenuConstructor(char* caller) { return &mainMenu; }
+void* quickStartMenuConstructor(char* caller){ return &quickStartMenu; }
+void* jobsMenuConstructor(char* caller) { return &jobsMenu; }
+void* testMenuConstructor(char* caller) { return &testMenu; }
+void* calibrationMenuConstructor(char* caller) { return &calibrationMenu; }
+void* informationMenuConstructor(char* caller) { return &informationMenu; }
 
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@ Dynamic menu constructors @@@@@@@@@@@@@@@@@@@@@@@@
 
-void* programmingMenuConstructor(){
-    
+
+void* runJobsMenuConstructor(char* caller){return &Menu(runJobsMenuForge); }
+void* deleteJobMenuConstructor(char* caller){return &Menu(deleteJobsMenuForge); }
+
+MenuData runJobsMenuForge(){
+      MenuData data;
+      if(jobTable->numJobs == 0){ 
+            data.size = 1;
+            data.items = new MenuItem{cstr("No jobs!"), FUNC, doNothing};
+            return data;
+      }
+      data.size = jobTable->numJobs + 1;
+      MenuItem* items = (MenuItem*)malloc(sizeof(MenuItem) * data.size);
+      items[0].name = const_cast<char*>("Search for a job");
+      items[0].type = FUNC;
+      items[0].call = searchJobForRunning;
+      for(int i = 0; i < jobTable->numJobs; i++){
+            items[i + 1].name = jobTable->getJob(i)->name;
+            items[i + 1].type = FUNC;
+            items[i + 1].call = runJob;
+      }
+      return data;
 }
 
-void* loadJobMenuConstructor(){return jobsMenuConstructor(loadJob);}
-void* createJobMenuConstructor(){return jobsMenuConstructor(createJob);}
-void* deleteJobMenuConstructor(){return jobsMenuConstructor(deleteJob);}
+MenuData deleteJobsMenuForge(){
+      MenuData data;
+      if(jobTable->numJobs == 0){ 
+            data.size = 1;
+            data.items = new MenuItem{cstr("No jobs!"), FUNC, doNothing};
+            return data;
+      }
+      data.size = jobTable->numJobs + 1;
+      MenuItem* items = (MenuItem*)malloc(sizeof(MenuItem) * data.size);
+      items[0].name = const_cast<char*>("Search for a job");
+      items[0].type = FUNC;
+      items[0].call = searchJobForDeletion;
+      for(int i = 0; i < jobTable->numJobs; i++){
+            items[i + 1].name = jobTable->getJob(i)->name;
+            items[i + 1].type = FUNC;
+            items[i + 1].call = deleteJob;
+      }
+      return data;
+}
