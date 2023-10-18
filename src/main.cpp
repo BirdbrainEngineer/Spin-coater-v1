@@ -1,13 +1,5 @@
 #include <main.h>
 
-// =====================Device information constants========================
-const char DEVICE_NAME[] = "BB Spin Coater\nv0.1.0";
-const char HARDWARE_VERSION[] = "0.1.0";
-const char FIRMWARE_VERSION[] = "0.1.0";
-const char HARDWARE[] = "Birdbrain";
-const char SOFTWARE[] = "Birdbrain";
-const char LICENSE[] = "MIT";
-
 
 // ============================GPIO PINOUT==================================
 // 0 used for usb
@@ -70,7 +62,7 @@ const unsigned int keypadDebounceInterval = 10;
 const unsigned long coreLoopInterval = 500; //in micros
 volatile float analogAlpha = 0.01;
 volatile float rpmAlpha = 0.2;
-const Config defaultConfig = {0.3, 0.004, 0.0};
+const Config defaultConfig = {0.3, 0.004, 0.0, 0.01, 0.2};
 const char jobsPath[] = "/jobs/";
 const char jobsFolderPath[] = "/jobs";
 const char configFilePath[] = "/config";
@@ -84,8 +76,8 @@ volatile bool pidEnabled = false;
 volatile float rpmTarget = 3333.0;
 volatile double currentRPM = 0.0;
 volatile float pidDutyCycle = 0.0;
-volatile Config config = {0.0, 0.0, 0.0};
-volatile Config storedConfig = {0.0, 0.0, 0.0};
+volatile Config config = {0.0, 0.0, 0.0, 0.0, 0.0};
+volatile Config storedConfig = {0.0, 0.0, 0.0, 0.0, 0.0};
 volatile bool motorEnabled = false;
 
 
@@ -446,6 +438,20 @@ bool askYesNo(char* text){
   }
 }
 
+bool askYesNo(){
+  while(true){
+    keypad->pollBlocking();
+    if(keypad->getKeysWithState(KeyState::KEY_DOWN) > 0){
+      if(keypad->buffer[0].key == YES){
+        return true;
+      }
+      else if(keypad->buffer[0].key == NO || keypad->buffer[0].key == BACK){
+        return false;
+      }
+    }
+  }
+}
+
 bool askYesNo(const char* text){
   return askYesNo(const_cast<char*>(text));
 }
@@ -460,7 +466,7 @@ bool pollKeypadForSpecificCharPressed(char c){
   return false;
 }
 
-bool getUserInput(TextBuffer* str, bool numeric){
+bool getUserInput(TextBuffer* buffer, bool numeric){
   lcd.setCursor(0, 1);
   lcd.print("                ");
   lcd.setCursor(0, 1);
@@ -470,29 +476,29 @@ bool getUserInput(TextBuffer* str, bool numeric){
     char key = keypad->buffer[0].key;
     if(key == ENTER){
       lcd.noCursor();
-      return str->isEmpty()? false : true;
+      return buffer->isEmpty()? false : true;
     }
     else if(key == BACK){
-      if(str->isEmpty()){ lcd.noCursor(); return false; }  
-      else{ str->popBack(); }
+      if(buffer->isEmpty()){ lcd.noCursor(); return false; }  
+      else{ buffer->popBack(); }
     }
     else{
       if(numeric){
         if(key == DOT){
-          str->pushBack('.');
+          buffer->pushBack('.');
         }
         else if(key >= '0' && key <= '9'){
-          str->pushBack(key);
+          buffer->pushBack(key);
         }
       }
       else {
-        str->pushBack(keypad->buffer[0].key);
+        buffer->pushBack(keypad->buffer[0].key);
       }
     }
     lcd.setCursor(0, 1);
     lcd.print("                ");
     lcd.setCursor(0, 1);
-    lcd.print(str->buffer);
+    lcd.print(buffer->buffer);
   }
 }
 

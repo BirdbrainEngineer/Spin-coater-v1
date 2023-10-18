@@ -52,6 +52,7 @@ class JobTable{
         ~JobTable();
         void loadJobs();
         void setRepositoryPath(const char* path);
+        char* getRepositoryPath();
         SpinnerJob* getJob(int index);
         int exists(char* name);
         bool addJob(SpinnerJob* job);

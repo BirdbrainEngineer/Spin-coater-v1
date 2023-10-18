@@ -176,3 +176,7 @@ bool JobTable::removeJob(int index){
 bool JobTable::isEmpty(){
     return this->numJobs == 0 ? true : false;
 }
+
+char* JobTable::getRepositoryPath(){
+    return this->repositoryPath;
+}

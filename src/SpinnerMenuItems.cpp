@@ -19,12 +19,11 @@ MenuItem QuickstartMenuItems[2] = {
 
 MenuItem JobsMenuItems[3] = {
       {cstr("Load job"), MENU, runJobsMenuConstructor},
-      {cstr("Create job"), MENU, createJob},
+      {cstr("Create job"), FUNC, createJob},
       {cstr("Delete job"), MENU, deleteJobMenuConstructor},
 };
 
-MenuItem TestMenuItems[4] = {
-      {cstr("Combined"), FUNC, testCombined},
+MenuItem TestMenuItems[3] = {
       {cstr("Acceleration"), FUNC, testAcceleration},
       {cstr("Speed"), FUNC, testSpeed},
       {cstr("PID"), FUNC, testPID},

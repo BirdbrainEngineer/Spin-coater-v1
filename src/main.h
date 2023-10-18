@@ -34,6 +34,7 @@ void rebootWithText(u32_t delay, const char* text);
 
 bool askYesNo(char* text);
 bool askYesNo(const char* text);
+bool askYesNo();
 bool pollKeypadForSpecificCharPressed(char c);
 
 void printlcd(char* text);
@@ -47,7 +48,8 @@ void saveConfiguration(volatile Config &config);
 void enableMotor();
 void disableMotor();
 SpinnerJob* loadJob(File file);
-bool getUserInput(TextBuffer* str, bool numeric = false);
+bool saveJob(SpinnerJob* job);
+bool getUserInput(TextBuffer* buffer, bool numeric = false);
 
 void renderMenuContext(MenuContext menuContext);
 
