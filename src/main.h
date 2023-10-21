@@ -48,8 +48,9 @@ void saveConfiguration(volatile Config &config);
 void enableMotor();
 void disableMotor();
 SpinnerJob* loadJob(File file);
-bool saveJob(SpinnerJob* job);
+bool saveJob(SpinnerJob* job, const char* directoryPath);
 bool getUserInput(TextBuffer* buffer, bool numeric = false);
+bool runJobDirect(SpinnerJob* job, bool useCurrentConfig = false);
 
 void renderMenuContext(MenuContext menuContext);
 

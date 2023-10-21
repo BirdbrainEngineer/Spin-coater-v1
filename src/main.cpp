@@ -73,12 +73,13 @@ const u8_t maxJobNameLength = 9;
 // =========================Inter-Core variables==============================
 volatile float analogDutyCycle = 0.0;
 volatile bool pidEnabled = false;
-volatile float rpmTarget = 3333.0;
+volatile float rpmTarget = 0.0;
 volatile double currentRPM = 0.0;
 volatile float pidDutyCycle = 0.0;
 volatile Config config = {0.0, 0.0, 0.0, 0.0, 0.0};
 volatile Config storedConfig = {0.0, 0.0, 0.0, 0.0, 0.0};
 volatile bool motorEnabled = false;
+RP2040_PWM* motorDriver;
 
 
 // ========================Core-specific variables===========================
@@ -92,13 +93,16 @@ JobTable* jobTable;
 bool cursorBlinker = false;
 unsigned long inputBufferIndex = 0;
 bool memoryGood = true;
+bool pidTestAvailable = false;
+bool quickRunJobAvailable = false;
+SpinnerJob* pidTestJob = nullptr;
+SpinnerJob* quickRunJob = nullptr;
 
 
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Core-1  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-RP2040_PWM* motorDriver;
-PID_controller pidController;
+PID_controller* pidController;
 RPI_PICO_Timer ITimer3(3);
 SWtimer* coreLoop;
 unsigned long core1Timer = 0;
@@ -157,15 +161,44 @@ void setup() {
     lcd.print("Init jobs...     ");
     jobTable = new JobTable(jobsFolderPath);
     auto jobsDirectory = SD.open(jobsFolderPath);
-    while(true){
-      auto file = jobsDirectory.openNextFile();
-      if(!file){ break; }
-      SpinnerJob* job = loadJob(file);
+    while(auto jobFile = jobsDirectory.openNextFile()){
+      SpinnerJob* job = loadJob(jobFile);
       if(job == nullptr){ printlcdErrorMsg("Error loading\na job file!"); }
       else{
-        if(!jobTable->addJob(job)){ printlcdErrorMsg("Too many jobs\nsaved to memory!"); }
+        if(!jobTable->addJob(job)){ 
+          printlcdErrorMsg("Too many jobs\nsaved to memory!"); 
+          break;
+        }
       }
+      jobFile.close();
     }
+    jobsDirectory.close();
+    auto defaultJobFile = SD.open("/pid");
+    if(!defaultJobFile){
+      pidTestAvailable = false;
+      printlcdErrorMsg("Missing PID\ntest job file!");
+    }
+    else {
+      pidTestJob = loadJob(defaultJobFile);
+      if(pidTestJob == nullptr){
+        printlcdErrorMsg("PID test job\nfile corrupted!");
+        pidTestAvailable = false;
+      }
+      else{ pidTestAvailable = true; }
+    }
+    defaultJobFile.close();
+
+    defaultJobFile = SD.open("/quick");
+    if(!defaultJobFile){ quickRunJobAvailable = false; }
+    else {
+      pidTestJob = loadJob(defaultJobFile);
+      if(pidTestJob == nullptr){
+        printlcdErrorMsg("Quick run job\nfile corrupted!");
+        quickRunJobAvailable = false;
+      }
+      else{ quickRunJobAvailable = true; }
+    }
+    defaultJobFile.close();
   }
   else{
     //todo: init reduced menu
@@ -194,7 +227,7 @@ void loop() {
 // ============================== Core 1 =====================================
 void setup1() {
   motorDriver = new RP2040_PWM(motor_pwm_pin, motorPWMFrequency, 0.0);
-  pidController = PID_controller(config.Kp, config.Ki, config.Kd, controllerMinOutput, controllerMaxOutput);
+  pidController = new PID_controller(config.Kp, config.Ki, config.Kd, controllerMinOutput, controllerMaxOutput);
   coreLoop = new SWtimer(coreLoopInterval, true);
 
   pinMode(spinner_power_enable_pin, OUTPUT);
@@ -221,7 +254,7 @@ void loop1() {
       if(motorEnabled){
         float currentDutyCycle;
         if(pidEnabled){
-          currentDutyCycle = pidDutyCycle;
+          currentDutyCycle = pidController->compute(rpmTarget, currentRPM, coreLoop->previousTrueElapsedInterval);
         }
         else{
           currentDutyCycle = analogDutyCycle;
@@ -370,13 +403,14 @@ void renderMenuContext(MenuContext menuContext){
 }
 
 void enableMotor(){
+  currentRPM = 0.0;
   digitalWrite(spinner_running_led_pin, HIGH);
   digitalWrite(spinner_power_enable_pin, HIGH);
   motorEnabled = true;
 }
 
 void disableMotor(){
-  motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 0);
+  motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 0.0);
   digitalWrite(spinner_running_led_pin, LOW);
   digitalWrite(spinner_power_enable_pin, LOW);
   motorEnabled = false;
@@ -393,14 +427,26 @@ void panicIfOOM(void* pointer, const char* errorText){
 }
 
 SpinnerJob* loadJob(File file){
+  if(!file){ 
+    printlcdErrorMsg("Job load failed!\n@loadJob-0");
+    return nullptr;
+  }
   SpinnerJob* job = new SpinnerJob(file.name());
-  if(rp2040.getFreeHeap() < 15000 || job == nullptr){ rebootWithText(100, "Out of memory!\n@:_loadJob"); }
+  if(job == nullptr){ 
+    rebootWithText(100, "Out of memory!\n@loadJob-1");
+    return nullptr;
+  }
+  if(rp2040.getFreeHeap() < 15000){
+    delete job;
+    rebootWithText(100, "Out of memory!\n@loadJob-2");
+    return nullptr;
+  }
   DynamicJsonDocument doc(15000);
   DeserializationError error = deserializeJson(doc, file);
   if(error){
     delete job;
     doc.~BasicJsonDocument();
-    printlcdErrorMsg("Failed to load\nthe job!");
+    printlcdErrorMsg("Job load failed!\n@loadJob-3");
     return nullptr;
   }
   int length = doc["length"];
@@ -420,6 +466,42 @@ SpinnerJob* loadJob(File file){
   }
   doc.~BasicJsonDocument();
   return job;
+}
+
+bool saveJob(SpinnerJob* job, const char* directoryPath){
+  char fullPath[100] = "";
+  strcat(fullPath, directoryPath);
+  strcat(fullPath, "/");
+  strcat(fullPath, job->name);
+  File file = SD.open(fullPath, FILE_WRITE);
+  if(!file){ 
+    printlcdErrorMsg("Error saving job\n@saveJob-0");
+    return false; 
+  }
+  if(rp2040.getFreeHeap() < 15000){
+    file.close();
+    rebootWithText(100, "Out of memory!\n@saveJob-1");
+    return false;
+  }
+  DynamicJsonDocument doc(15000);
+  doc["length"] = job->sequenceLength;
+  doc["Kp"] = job->config.Kp;
+  doc["Ki"] = job->config.Ki;
+  doc["Kd"] = job->config.Kd;
+  for(int i = 0; i < job->sequenceLength; i++){
+    doc["sequence"][i]["duration"] = job->sequence[i].duration;
+    doc["sequence"][i]["task"] = job->sequence[i].task;
+    doc["sequence"][i]["rpm"] = job->sequence[i].rpm;
+  }
+  if (serializeJsonPretty(doc, file) == 0) {
+    printlcdErrorMsg("Error saving job\n@saveJob-1");
+    doc.~BasicJsonDocument();
+    file.close();
+    return false;
+  }
+  doc.~BasicJsonDocument();
+  file.close();
+  return true;
 }
 
 bool askYesNo(char* text){
@@ -536,5 +618,84 @@ bool setUserVariable(const char* displayText, float* variable){
             }
         }
         lcd.print(textBuffer->buffer);
+    }
+}
+
+bool runJobDirect(SpinnerJob* job, bool useCurrentConfig){
+    SWtimer* updateTimer = new SWtimer(1000, true);
+    SWtimer* displayTimer = new SWtimer(200000, true);
+    panicIfOOM(&updateTimer, "@runJob-1");
+    panicIfOOM(&displayTimer, "@runJob-2");
+    char startText[36] = "Run job:\n\"";
+    strcat(startText, job->name);
+    strcat(startText, "\"?");
+    if(!askYesNo(startText)){
+        delete updateTimer;
+        delete displayTimer;
+        return false;
+    }
+    lcd.clear();
+    lcd.print(job->name);
+    lcd.setCursor(14, 0);
+    lcd.print(" |");
+    lcd.setCursor(0, 1);
+    const char animationGraphic[4] = {'|', '/', '-', '\\'};
+    int animationIndex = 0;
+    if(!useCurrentConfig){
+      storedConfig.Kp = config.Kp;
+      storedConfig.Ki = config.Ki;
+      storedConfig.Kd = config.Kd;
+      config.Kp = job->getConfig()->Kp;
+      config.Ki = job->getConfig()->Ki;
+      config.Kd = job->getConfig()->Kd;
+    }
+    job->start();
+    while(true){
+        if(updateTimer->poll()){
+            if(!job->update()){
+                job->stop();
+                lcd.clear();
+                lcd.print("Finishing...");
+                delete updateTimer;
+                delete displayTimer;
+                if(!useCurrentConfig){
+                  config.Kp = storedConfig.Kp;
+                  config.Ki = storedConfig.Ki;
+                  config.Kd = storedConfig.Kd;
+                }
+                delay(2000);
+                job->reset();
+                return true;
+            }
+        }
+        if(displayTimer->poll()){
+            if(keypad->pollState(KeyState::KEY_DOWN) > 0){
+                if(keypad->buffer[0].key == BACK){
+                    job->stop();
+                    lcd.clear();
+                    lcd.print("Stopping...");
+                    delete updateTimer;
+                    delete displayTimer;
+                    if(!useCurrentConfig){
+                      config.Kp = storedConfig.Kp;
+                      config.Ki = storedConfig.Ki;
+                      config.Kd = storedConfig.Kd;
+                    }
+                    delay(2000);
+                    job->reset();
+                    return false;
+                }
+            }
+            lcd.setCursor(15, 0);
+            lcd.print(animationGraphic[animationIndex]);
+            if(animationIndex < 3){ animationIndex++; }
+            else { animationIndex = 0; }
+            lcd.setCursor(0, 1);
+            lcd.print(job->index + 1);
+            lcd.print('/');
+            lcd.print(job->sequenceLength);
+            lcd.print(" RPM:");
+            lcd.print(currentRPM, 0);
+        }
     }
 }

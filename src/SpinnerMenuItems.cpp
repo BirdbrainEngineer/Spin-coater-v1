@@ -24,9 +24,9 @@ MenuItem JobsMenuItems[3] = {
 };
 
 MenuItem TestMenuItems[3] = {
-      {cstr("Acceleration"), FUNC, testAcceleration},
-      {cstr("Speed"), FUNC, testSpeed},
-      {cstr("PID"), FUNC, testPID},
+      {cstr("Acceleration"), FUNC, accelerationTest},
+      {cstr("Speed"), FUNC, speedTest},
+      {cstr("PID"), FUNC, pidTestAvailable ? pidTest : doNothing},
 };
 
 MenuItem CalibrationMenuItems[6] = {
@@ -61,7 +61,7 @@ Menu emptyMenu = Menu(emptyMenuItems);
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@ Static menu constructors @@@@@@@@@@@@@@@@@@@@@@@@
 
-Menu* mainMenuConstructor(char* caller) { return &mainMenu; }
+Menu* mainMenuConstructor() { return &mainMenu; }
 void* quickStartMenuConstructor(char* caller){ return &quickStartMenu; }
 void* jobsMenuConstructor(char* caller) { return &jobsMenu; }
 void* testMenuConstructor(char* caller) { return &testMenu; }
@@ -72,8 +72,8 @@ void* informationMenuConstructor(char* caller) { return &informationMenu; }
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@ Dynamic menu constructors @@@@@@@@@@@@@@@@@@@@@@@@
 
 
-void* runJobsMenuConstructor(char* caller){return &Menu(runJobsMenuForge); }
-void* deleteJobMenuConstructor(char* caller){return &Menu(deleteJobsMenuForge); }
+void* runJobsMenuConstructor(char* caller){return new Menu(runJobsMenuForge); }
+void* deleteJobMenuConstructor(char* caller){return new Menu(deleteJobsMenuForge); }
 
 MenuData runJobsMenuForge(){
       MenuData data;

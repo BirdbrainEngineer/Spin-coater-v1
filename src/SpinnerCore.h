@@ -2,6 +2,7 @@
 #include <main.h>
 
 extern const u8_t maxJobNameLength;
+extern volatile bool pidEnabled;
 
 enum SpinnerTask{
     NONE,

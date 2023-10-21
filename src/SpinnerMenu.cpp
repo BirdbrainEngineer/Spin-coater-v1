@@ -1,11 +1,11 @@
 #include <SpinnerMenu.h>
 
-void* runProgrammed(){
+void* runProgrammed(char* caller){
     pidEnabled = true;
     return nullptr;
 }
 
-void* runAnalog(){
+void* runAnalog(char* caller){
     lcd.clear();
     lcd.print("Analog control");
     lcd.setCursor(0, 1);
@@ -39,11 +39,11 @@ void* runAnalog(){
     }
 }
 
-void* automaticCalibration(){
-    return nullptr;
+void* automaticCalibration(char* caller){
+    return nullptr; //TODO
 }
 
-void* setKp(){
+void* setKp(char* caller){
     float newKp;
     if(setUserVariable("Set Kp...", &newKp)){
         config.Kp = newKp;
@@ -51,7 +51,7 @@ void* setKp(){
     }
     return nullptr;
 }
-void* setKi(){
+void* setKi(char* caller){
     float newKi;
     if(setUserVariable("Set Ki...", &newKi)){
         config.Ki = newKi;
@@ -59,7 +59,7 @@ void* setKi(){
     }
     return nullptr;
 }
-void* setKd(){
+void* setKd(char* caller){
     float newKd;
     if(setUserVariable("Set Kd...", &newKd)){
         config.Kd = newKd;
@@ -67,7 +67,7 @@ void* setKd(){
     }
     return nullptr;
 }
-void* setAnalogAlpha(){
+void* setAnalogAlpha(char* caller){
     float newAlpha;
     if(setUserVariable("Analog-in alpha...", &newAlpha)){
         config.analogAlpha = newAlpha;
@@ -75,7 +75,7 @@ void* setAnalogAlpha(){
     }
     return nullptr;
 }
-void* setRpmAlpha(){
+void* setRpmAlpha(char* caller){
     float newAlpha;
     if(setUserVariable("Set RPM alpha...", &newAlpha)){
         config.rpmAlpha = newAlpha;
@@ -85,6 +85,7 @@ void* setRpmAlpha(){
 }
 
 void* doNothing(char* caller){
+    printlcdErrorMsg("Function not\navailable!");
     return nullptr;
 }
 
@@ -220,7 +221,7 @@ void* runJob(char* caller){
         return nullptr;
     }
     SpinnerJob* job = jobTable->getJob(jobIndex);
-    SWtimer* updateTimer = new SWtimer(1000, true);
+    SWtimer* updateTimer = new SWtimer(coreLoopInterval, true);
     SWtimer* displayTimer = new SWtimer(200000, true);
     panicIfOOM(&updateTimer, "@runJob-1");
     panicIfOOM(&displayTimer, "@runJob-2");
@@ -237,7 +238,6 @@ void* runJob(char* caller){
     lcd.setCursor(14, 0);
     lcd.print(" |");
     lcd.setCursor(0, 1);
-    digitalWrite(spinner_running_led_pin, HIGH);
     const char animationGraphic[4] = {'|', '/', '-', '\\'};
     int animationIndex = 0;
     storedConfig.Kp = config.Kp;
@@ -260,7 +260,6 @@ void* runJob(char* caller){
                 config.Kd = storedConfig.Kd;
                 delay(2000);
                 job->reset();
-                digitalWrite(spinner_running_led_pin, LOW);
                 return nullptr;
             }
         }
@@ -277,7 +276,6 @@ void* runJob(char* caller){
                     config.Kd = storedConfig.Kd;
                     delay(2000);
                     job->reset();
-                    digitalWrite(spinner_running_led_pin, LOW);
                     return nullptr;
                 }
             }
@@ -367,7 +365,7 @@ void* displayLicenseMIT(char* caller){
     }
 }
 
-void* searchJobForRunningJob(char* caller){
+void* searchJobForRunning(char* caller){
     TextBuffer* input = new TextBuffer(maxJobNameLength);
     lcd.clear();
     lcd.print("Job name:");
@@ -429,7 +427,7 @@ void* deleteJob(char* caller){
     strcat(jobPath, caller);
     SD.remove(jobPath);
     lcd.clear();
-    lcd.print("Job deleted!");
+    printlcdErrorMsg("Job deleted!");
     return nullptr;
 }
 
@@ -441,7 +439,7 @@ void* createJob(char* caller){
         lcd.clear();
         lcd.print("New job name:");
         if(getUserInput(name, false)){
-            if(jobTable->exists(name->buffer)){
+            if(jobTable->exists(name->buffer) >= 0){
                 printlcdErrorMsg("Name already\ntaken!");
                 lcd.clear();
                 lcd.print("Try again: ");
@@ -478,7 +476,7 @@ void* createJob(char* caller){
         SD.remove(jobPath);
     }
     jobTable->addJob(job);
-    if(!saveJob(job)){
+    if(!saveJob(job, jobsPath)){
         printlcdErrorMsg("Critical error!\n@createJob-1");
         printlcdErrorMsg("File corruption\npossible!");
     }
@@ -491,25 +489,341 @@ void* createJob(char* caller){
 
 void* runProgrammedJob(char* caller){
     SpinnerJob* job;
-    char jobPath[40] = "";
-    auto jobIndex = jobTable->exists(const_cast<char*>("quick"));
-    if(jobIndex >= 0){
-        printlcd("Load previous\nquick-job?");
-        if(askYesNo()){ 
-            job = jobTable->getJob(jobIndex); 
-            goto skipJobCreation;
+    if(SD.exists("quick")){
+        printlcd("Load previously\nmade quick-job?");
+        if(askYesNo()){
+            auto jobFile = SD.open("/quick");
+            if(!jobFile){
+                printlcdErrorMsg("File error!\n@runProg.Job-0");
+                return nullptr;
+            }
+            job = loadJob(jobFile);
+            jobFile.close();
+            goto run;
         }
     }
     job = jobCreator(); 
     job->changeName(const_cast<char*>("quick"));
-    strcat(jobPath, jobsPath);
-    strcat(jobPath, "quick");
-    SD.remove(jobPath);
-    jobTable->addJob(job);
-    saveJob(job);
+    if(SD.exists("quick")){ SD.remove("/quick"); }
+    if(saveJob(job, "/")){ quickRunAvailable = true; }
 
-    skipJobCreation:
+    run:
     runJob(const_cast<char*>("quick"));
-    if(askYesNo("Run job again?")){ goto skipJobCreation; }
+    if(askYesNo("Run job again?")){ goto run; }
+    else{
+        if(askYesNo("Save job\npermanently?")){
+            TextBuffer* name = new TextBuffer(maxJobNameLength);
+            panicIfOOM(name, "@runProg.Job-1");
+            askForName:
+            lcd.clear();
+            lcd.print("New job name:");
+            if(getUserInput(name, false)){
+                int jobIndex = jobTable->exists(name->buffer);
+                if(jobIndex >= 0){
+                    printlcdErrorMsg("Name already\ntaken!");
+                    lcd.clear();
+                    lcd.print("Try again: ");
+                    lcd.print(YES);
+                    lcd.setCursor(0, 1);
+                    lcd.print("Override: ");
+                    lcd.print(NO);
+                    if(askYesNo()){ goto askForName; }
+                    else{
+                        jobTable->removeJob(jobIndex);
+                        deleteJob(name->buffer);
+                    }
+                }
+                else{
+                    printlcd("Use name:\n\"");
+                    lcd.print(name->buffer);
+                    lcd.print("\"?");
+                    if(!askYesNo()){ goto askForName; }
+                }
+                job->changeName(name->buffer);
+                jobTable->addJob(job);
+                saveJob(job, jobsPath);
+            }
+            else {
+                delete name;
+                return nullptr;
+            }
+        }
+    }
+    return nullptr;
+}
+
+void* accelerationTest(char* caller){ 
+    const char animationGraphic[4] = {'|', '/', '-', '\\'};
+    int animationIndex = 0;
+    float results[10] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    int resultsIndex = 0;
+    int indexTest = 0;
+    float previousRPM = 0.0;
+    float currentAcceleration = 0.0;
+    SWtimer* timer = new SWtimer(200000, true);
+    SWtimer* testTimer = new SWtimer(2000000, false);
+    panicIfOOM(&timer, "@accelerationTest-0");
+    panicIfOOM(&testTimer, "@accelerationTest-1");
+    lcd.clear();
+    lcd.print("Running test.. ");
+    digitalWrite(spinner_power_enable_pin, HIGH);
+    digitalWrite(spinner_running_led_pin, HIGH);
+    timer->start();
+    while(indexTest < 5){
+        lcd.setCursor(0, 1);
+        lcd.print(indexTest + 1);
+        lcd.print("/5");
+        testTimer->stop();
+        if(resultsIndex % 2 == 0){ 
+            testTimer->interval = 2000000; 
+            currentRPM = 0.0; 
+            motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 100.0);
+        }
+        else { 
+            testTimer->interval = 4000000;
+            motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 0.0);
+        }
+        testTimer->start();
+        while(!testTimer->poll()){
+            if(timer->poll()){
+                if(keypad->pollState(KeyState::KEY_DOWN) > 0){
+                    if(keypad->buffer[0].key == BACK){
+                        digitalWrite(spinner_power_enable_pin, LOW);
+                        motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 0.0);
+                        lcd.clear();
+                        lcd.print("Stopping...");
+                        delete timer;
+                        delete testTimer;
+                        delay(2000);
+                        printlcdErrorMsg("Test stopped\nearly by user.");
+                        digitalWrite(spinner_running_led_pin, LOW);
+                        return nullptr;
+                    }
+                }
+                lcd.setCursor(15, 0);
+                lcd.print(animationGraphic[animationIndex]);
+                if(animationIndex < 3){ animationIndex++; }
+                else { animationIndex = 0; }
+                currentAcceleration = (currentRPM - previousRPM) / timer->previousTrueElapsedInterval * 0.000001;
+                if(abs(currentAcceleration) > abs(results[resultsIndex])){
+                    results[resultsIndex] = currentAcceleration;
+                }
+                previousRPM = currentRPM;
+            }
+        }
+        if(resultsIndex % 2 == 1){ indexTest++; }
+        resultsIndex++;
+    }
+    digitalWrite(spinner_power_enable_pin, LOW);
+    delete timer;
+    motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 0.0);
+    float positiveAcceleration = 0.2 * (results[0] + results[2] + results[4] + results[6] + results[8]);
+    float negativeAcceleration = 0.2 * (results[1] + results[3] + results[5] + results[7] + results[9]);
+    lcd.clear();
+    lcd.print("Pos.acceleration");
+    lcd.setCursor(0, 1);
+    lcd.print(positiveAcceleration, 2);
+    lcd.print("rpm/s");
+    keypad->pollStateBlocking(KeyState::KEY_DOWN);
+    lcd.clear();
+    lcd.print("Neg.acceleration");
+    lcd.setCursor(0, 1);
+    lcd.print(negativeAcceleration, 2);
+    lcd.print("rpm/s");
+    keypad->pollStateBlocking(KeyState::KEY_DOWN);
+    digitalWrite(spinner_running_led_pin, LOW);
+    return nullptr;
+}
+
+void* speedTest(char* caller){
+    const char animationGraphic[4] = {'|', '/', '-', '\\'};
+    int animationIndex = 0;
+    float minStartSpeed;
+    float maxSpeed;
+    float minSpeed;
+    float startDutyCycle;
+    float previousDutyCycle;
+    float previousRPM = 0.0;
+    int testIndex = 0;
+    currentRPM = 0.0;
+    SWtimer* timer = new SWtimer(200000, true);
+    panicIfOOM(&timer, "@speedTest-0");
+    lcd.clear();
+    motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 0.0);
+    printlcd("Running test.. |\nmay take a while");
+    digitalWrite(spinner_power_enable_pin, HIGH);
+    digitalWrite(spinner_running_led_pin, HIGH);
+    timer->start();
+    while(testIndex < 3){
+        if(timer->poll()){
+            if(keypad->pollState(KeyState::KEY_DOWN) > 0){
+                if(keypad->buffer[0].key == BACK){
+                    digitalWrite(spinner_power_enable_pin, LOW);
+                    motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 0.0);
+                    lcd.clear();
+                    lcd.print("Stopping...");
+                    delete timer;
+                    delay(2000);
+                    printlcdErrorMsg("Test stopped\nearly by user.");
+                    digitalWrite(spinner_running_led_pin, LOW);
+                    return nullptr;
+                }
+            }
+            lcd.setCursor(15, 0);
+            lcd.print(animationGraphic[animationIndex]);
+            if(animationIndex < 3){ animationIndex++; }
+            else { animationIndex = 0; }
+            switch(testIndex){
+                case 0: {
+                    if(currentRPM == 0.0){
+                        startDutyCycle += 0.1;
+                        motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, startDutyCycle);
+                    }
+                    else{
+                        lcd.setCursor(15, 0);
+                        lcd.print('?');
+                        delay(1000);
+                        minStartSpeed = currentRPM;
+                        previousRPM = currentRPM;
+                        previousDutyCycle = startDutyCycle;
+                        timer->interval = 500000;
+                        testIndex++;
+                    }
+                    break;
+                }
+                case 1: {
+                    if(currentRPM != previousRPM){
+                        previousDutyCycle -= 0.1;
+                        motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, previousDutyCycle);
+                    }
+                    else{
+                        minSpeed = previousRPM;
+                        motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 100.0);
+                        testIndex++;
+                    }
+                    break;
+                }
+                case 2: {
+                    if(abs(currentRPM - previousRPM) > 10.0){
+                        previousRPM = currentRPM;
+
+                    }
+                    else{
+                        maxSpeed = max(currentRPM, previousRPM);
+                        testIndex++;
+                    }
+                    break;
+                }
+                default: {
+                    digitalWrite(spinner_power_enable_pin, LOW);
+                    motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 0.0);
+                    delete timer;
+                    printlcdErrorMsg("Firmware error!\n@speedTest-1");
+                    delay(2000);
+                    digitalWrite(spinner_running_led_pin, LOW);
+                    return nullptr;
+                }
+            }
+        }
+    }
+    digitalWrite(spinner_power_enable_pin, LOW);
+    motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 0.0);
+    delete timer;
+    lcd.clear();
+    lcd.print("Starting speed:");
+    lcd.setCursor(0, 1);
+    lcd.print(minStartSpeed, 2);
+    lcd.print(" rpm");
+    keypad->pollStateBlocking(KeyState::KEY_DOWN);
+    lcd.clear();
+    lcd.print("Minimum speed:");
+    lcd.setCursor(0, 1);
+    lcd.print(minSpeed, 2);
+    lcd.print(" rpm");
+    keypad->pollStateBlocking(KeyState::KEY_DOWN);
+    lcd.clear();
+    lcd.print("Maximum speed:");
+    lcd.setCursor(0, 1);
+    lcd.print(maxSpeed, 2);
+    lcd.print(" rpm");
+    keypad->pollStateBlocking(KeyState::KEY_DOWN);
+    digitalWrite(spinner_running_led_pin, LOW);
+    return nullptr;
+}
+
+void* pidTest(char* caller){
+    if(pidTestJob == nullptr){
+        printlcdErrorMsg("Firmware error!\n@pidTest-0");
+        return nullptr;
+    }
+    SWtimer* updateTimer = new SWtimer(coreLoopInterval, true);
+    SWtimer* displayTimer = new SWtimer(200000, true);
+    panicIfOOM(&updateTimer, "@pidTest-1");
+    panicIfOOM(&displayTimer, "@pidTest-2");
+    const char animationGraphic[4] = {'|', '/', '-', '\\'};
+    int animationIndex = 0;
+    float totalError = 0.0;
+    float greatestOvershoot = 0.0;
+    lcd.clear();
+    lcd.print("Running test.. ");
+    lcd.setCursor(11, 0);
+    lcd.print(animationGraphic[0]);
+    pidEnabled = true;
+    pidTestJob->start();
+    updateTimer->start();
+    displayTimer->start();
+    while(true){
+        if(updateTimer->poll()){
+            if(!pidTestJob->update()){
+                pidTestJob->stop();
+                lcd.clear();
+                lcd.print("Finishing...");
+                delete updateTimer;
+                delete displayTimer;
+                delay(2000);
+                pidTestJob->reset();
+                break;
+            }
+            else{
+                if(rpmTarget < currentRPM){
+                    greatestOvershoot = greatestOvershoot < (currentRPM - rpmTarget) ? (currentRPM - rpmTarget) : greatestOvershoot;
+                }
+                totalError += abs(currentRPM - rpmTarget) / (float)updateTimer->previousTrueElapsedInterval;
+            }
+        }
+        if(displayTimer->poll()){
+            if(keypad->pollState(KeyState::KEY_DOWN) > 0){
+                if(keypad->buffer[0].key == BACK){
+                    pidTestJob->stop();
+                    lcd.clear();
+                    lcd.print("Stopping...");
+                    delete updateTimer;
+                    delete displayTimer;
+                    pidTestJob->reset();
+                    delay(2000);
+                    printlcdErrorMsg("Test stopped\nearly by user.");
+                    return nullptr;
+                }
+            }
+            lcd.setCursor(15, 0);
+            lcd.print(animationGraphic[animationIndex]);
+            if(animationIndex < 3){ animationIndex++; }
+            else { animationIndex = 0; }
+        }
+    }
+    delete updateTimer;
+    delete displayTimer;
+    lcd.clear();
+    lcd.print("Total error:");
+    lcd.setCursor(0, 1);
+    lcd.print(totalError, 2);
+    lcd.print(" rpm");
+    keypad->pollStateBlocking(KeyState::KEY_DOWN);
+    lcd.clear();
+    lcd.print("Max. overshoot:");
+    lcd.setCursor(0, 1);
+    lcd.print(greatestOvershoot, 2);
+    lcd.print(" rpm");
+    keypad->pollStateBlocking(KeyState::KEY_DOWN);
     return nullptr;
 }

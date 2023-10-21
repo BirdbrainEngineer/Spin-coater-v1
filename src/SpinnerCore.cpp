@@ -18,6 +18,7 @@ SpinnerJob::~SpinnerJob(){
 
 bool SpinnerJob::start(){ //returns false if the job could not be started
     if(this->sequence[this->sequenceLength - 1].task != END){ return false; }
+    pidEnabled = true;
     this->stopped = false;
     enableMotor();
     this->previousTransitionTime = millis();
@@ -45,7 +46,8 @@ bool SpinnerJob::update(){ //returns false if the job has finished
                         return true;
                     }
 
-        case END:   disableMotor();
+        case END:   pidEnabled = false;
+                    disableMotor();
                     this->currentTargetRpm = 0.0;
                     this->stopped = true;
                     return false;
@@ -53,7 +55,8 @@ bool SpinnerJob::update(){ //returns false if the job has finished
         case NONE:  this->nextTransitionTime = this->previousTransitionTime;
                     return this->update();
 
-        default:    disableMotor();
+        default:    pidEnabled = false;
+                    disableMotor();
                     this->stopped = true;
                     printlcdErrorMsg("    Illegal\nSpinnerAction!");
                     return false;
@@ -61,6 +64,7 @@ bool SpinnerJob::update(){ //returns false if the job has finished
 }
 
 void SpinnerJob::stop(){
+    pidEnabled = false;
     disableMotor();
     this->stopped = true;
 }

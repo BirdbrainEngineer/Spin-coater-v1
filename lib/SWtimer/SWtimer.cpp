@@ -5,6 +5,7 @@ SWtimer::SWtimer(unsigned long interval, bool continuous){
     this->continuous = continuous;
     this->running = false;
     this->paused = false;
+    this->previousTrueElapsedInterval = 0;
 }
 SWtimer::~SWtimer(){}
 
@@ -12,6 +13,7 @@ bool SWtimer::poll(){
     if(!this->running || this->paused){ return false; }
     unsigned long currentTime = micros();
     if(currentTime - this->intervalStartTime >= this->interval){
+        this->previousTrueElapsedInterval = currentTime - this->intervalStartTime;
         if(!this->continuous){
             this->running = false;
             return true;
@@ -23,6 +25,7 @@ bool SWtimer::poll(){
 }
 void SWtimer::start(){
     if(this->running || this->paused){ return; }
+    this->previousTrueElapsedInterval = 0;
     this->intervalStartTime = micros();
     this->running = true;
 }

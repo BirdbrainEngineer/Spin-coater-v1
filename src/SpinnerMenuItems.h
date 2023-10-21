@@ -1,6 +1,7 @@
 #pragma once
 
 extern JobTable* jobTable;
+extern bool pidTestAvailable;
 
 Menu* mainMenuConstructor();
 void* quickStartMenuConstructor(char* caller);

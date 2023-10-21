@@ -16,13 +16,22 @@ extern volatile float analogDutyCycle;
 extern volatile float pidDutyCycle;
 extern volatile bool motorEnabled;
 extern volatile double currentRPM;
+extern volatile float rpmTarget;
 extern volatile Config config;
 extern volatile Config storedConfig;
 extern JobTable* jobTable;
 extern const u8_t maxJobNameLength;
 extern const char jobsPath[];
+extern bool quickRunAvailable;
+extern SpinnerJob* pidTestJob;
+extern SpinnerJob* quickRunJob;
+extern const unsigned long coreLoopInterval;
+extern RP2040_PWM* motorDriver;
+extern const int motor_pwm_pin;
+extern const float motorPWMFrequency;
 
 extern const int spinner_running_led_pin;
+extern const int spinner_power_enable_pin;
 
 
 
@@ -51,6 +60,10 @@ void* askStoreProgrammed(char* caller);
 void* createJob(char* caller);
 
 SpinnerJob* jobCreator();
+
+void* accelerationTest(char* caller);
+void* speedTest(char* caller);
+void* pidTest(char* caller);
 
 
 

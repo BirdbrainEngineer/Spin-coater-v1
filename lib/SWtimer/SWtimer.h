@@ -5,6 +5,7 @@ class SWtimer{
     public:
         bool continuous; // if true, then starts the next interval immediately after the previous interval has elapsed.
         unsigned long interval; //interval length in microseconds
+        unsigned long previousTrueElapsedInterval;
         SWtimer(unsigned long interval = 1000000, bool continuous = true);
         ~SWtimer();
         void start(); // starts the timer from this time instant
