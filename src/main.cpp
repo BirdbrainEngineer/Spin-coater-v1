@@ -382,6 +382,7 @@ void loadConfiguration(volatile Config &config) {
 
 // Saves the configuration to a file
 void saveConfiguration(volatile Config &config) {
+  if(!memoryGood){ return; }
   SD.remove(configFilePath);
   File file = SD.open(configFilePath, FILE_WRITE);
   if (!file) {
@@ -487,7 +488,6 @@ SpinnerJob* loadJob(File file){
     job->sequence[i].task = doc["sequence"][i]["task"];
     job->sequence[i].rpm = doc["sequence"][i]["rpm"];
   }
-  //doc.~BasicJsonDocument();
   return job;
 }
 

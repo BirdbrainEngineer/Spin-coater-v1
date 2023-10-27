@@ -80,7 +80,7 @@ void* updateMinDutyCycle(char* caller){
 }
 
 void* doNothing(char* caller){
-    printlcdErrorMsg("Function not\navailable!");
+    printlcdErrorMsg("Functionality\nnot available!");
     return nullptr;
 }
 
@@ -253,7 +253,6 @@ void* runJob(char* caller){
     while(true){
         if(updateTimer->poll()){
             if(!job->update()){
-                stopTest("Job successfully\nfinished!");
                 job->stop();
                 delete updateTimer;
                 delete displayTimer;
@@ -326,7 +325,6 @@ bool runJob(SpinnerJob* job){
         if(updateTimer->poll()){
             if(!job->update()){
                 job->stop();
-                stopTest("Job successfully\nfinished!");
                 disableMotor();
                 delete updateTimer;
                 delete displayTimer;
@@ -568,30 +566,12 @@ void* createJob(char* caller){
 }
 
 void* runProgrammedJob(char* caller){
-    SpinnerJob* job;
-    if(SD.exists("quick")){
-        if(askYesNo("Load previously\nmade quick-job?")){
-            auto jobFile = SD.open("/quick");
-            if(!jobFile){
-                printlcdErrorMsg("File error!\n@runProg.Job-0");
-                return nullptr;
-            }
-            job = loadJob(jobFile);
-            jobFile.close();
-            if(job == nullptr){ 
-                printlcdErrorMsg("Firmware error!\n@runProg.Job-1");
-                return nullptr; 
-            }
-            goto run;
-        }
-    }
-    job = jobCreator();
+    SpinnerJob* job = jobCreator();
     if(job == nullptr){ return nullptr; }
     job->changeName(const_cast<char*>("quick"));
     if(SD.exists("/quick")){ SD.remove("/quick"); }
     saveJob(job, "/");
 
-    run:
     do{
         if(!runJob(job)){ return nullptr; }
     } while(askYesNo("Run job again?"));
@@ -603,6 +583,7 @@ void* runProgrammedJob(char* caller){
         askForName:
         lcd.clear();
         lcd.print("New job name:");
+        name->clear();
         if(getUserInput(name, false)){
             int jobIndex = jobTable->exists(name->buffer);
             if(jobIndex >= 0){
@@ -615,10 +596,10 @@ void* runProgrammedJob(char* caller){
                 lcd.print(NO);
                 if(askYesNo()){ goto askForName; }
                 else{
+                    deleteJob(name->buffer);
                     if(!jobTable->removeJob(jobIndex)){
                         printlcdErrorMsg("Firmware error\n@runProg.Job-3");
                     }
-                    deleteJob(name->buffer);
                 }
             }
             else{
@@ -630,12 +611,16 @@ void* runProgrammedJob(char* caller){
             job->changeName(name->buffer);
             jobTable->addJob(job);
             saveJob(job, jobsPath);
-        }
-        else {
             delete name;
             return nullptr;
         }
+        else {
+            delete name;
+            delete job;
+            return nullptr;
+        }
     }
+    delete job;
     return nullptr;
 }
 

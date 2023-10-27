@@ -47,6 +47,7 @@ bool SpinnerJob::update(){ //returns false if the job has finished
         this->previousTransitionTime = currentTime;
         this->nextTransitionTime = this->previousTransitionTime + this->sequence[this->index].duration;
         if(this->sequence[this->index].task == END){ 
+            stopTest("Job successfully\nfinished!");
             disableMotor();
             this->currentTargetRpm = 0.0;
             this->stopped = true;
