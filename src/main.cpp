@@ -49,6 +49,15 @@ const char keys[keypadRows][keypadCols] = {
   {'7','8','9','C'},
   {'*','0','#','D'}
 };
+uint8_t backslash[8] = {
+  0b00000,
+  0b10000,
+  0b01000,
+  0b00100,
+  0b00010,
+  0b00001,
+  0b00000
+};
 char ENTER = '#';
 char BACK = '*';
 char UP = 'C';
@@ -62,7 +71,7 @@ const unsigned int keypadDebounceInterval = 10;
 const unsigned long coreLoopInterval = 500; //in micros
 volatile float analogAlpha = 0.01;
 volatile float rpmAlpha = 0.2;
-const Config defaultConfig = {0.3, 0.004, 0.0, 0.01, 0.2};
+const Config defaultConfig = {0.3, 0.004, 0.0, 0.01, 0.2, 10.0};
 const char jobsPath[] = "/jobs/";
 const char jobsFolderPath[] = "/jobs";
 const char configFilePath[] = "/config";
@@ -74,12 +83,14 @@ const u8_t maxJobNameLength = 9;
 volatile float analogDutyCycle = 0.0;
 volatile bool pidEnabled = false;
 volatile float rpmTarget = 0.0;
-volatile double currentRPM = 0.0;
+volatile float currentRPM = 0.0;
 volatile float pidDutyCycle = 0.0;
-volatile Config config = {0.0, 0.0, 0.0, 0.0, 0.0};
-volatile Config storedConfig = {0.0, 0.0, 0.0, 0.0, 0.0};
+volatile Config config = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+volatile Config storedConfig = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 volatile bool motorEnabled = false;
+volatile float minDutyCycle = 10.0;
 RP2040_PWM* motorDriver;
+PID_controller* pidController;
 
 
 // ========================Core-specific variables===========================
@@ -102,7 +113,6 @@ SpinnerJob* quickRunJob = nullptr;
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Core-1  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-PID_controller* pidController;
 RPI_PICO_Timer ITimer3(3);
 SWtimer* coreLoop;
 unsigned long core1Timer = 0;
@@ -124,7 +134,7 @@ void setup() {
   lcd.print("Init keypad...   ");
 
   keypad = new BBkeypad((char*)keys, keypadCols, keypadRows, colPins, rowPins);
-
+  lcd.createChar(1, backslash);
 
   lcd.setCursor(0, 1);
   lcd.print("Init memory...   ");
@@ -132,6 +142,12 @@ void setup() {
     printlcdErrorMsg("SD card not\nfound!");
     memoryGood = false;
     printlcdErrorMsg(" Functionality\nhighly limited!");
+    config.Kd = defaultConfig.Kd;
+    config.Ki = defaultConfig.Ki;
+    config.Kp = defaultConfig.Kp;
+    config.analogAlpha = defaultConfig.analogAlpha;
+    config.rpmAlpha = defaultConfig.rpmAlpha;
+    config.minDutyCycle = defaultConfig.minDutyCycle;
   }
   else {
     // Checks whether Jobs directory exists, if not, creates it. If a file with the same name exists, deletes it
@@ -155,7 +171,7 @@ void setup() {
   lcd.setCursor(0, 1);
   lcd.print("Init menu...     ");
   if(memoryGood){
-    menuController = new MenuController(mainMenuConstructor);
+    menuController = new MenuController(mainMenuConstructor, printlcdErrorMsg);
     menuController->init(10, reboot);
     lcd.setCursor(0, 1);
     lcd.print("Init jobs...     ");
@@ -203,6 +219,7 @@ void setup() {
   else{
     //todo: init reduced menu
   }
+  pidController = new PID_controller(config.Kp, config.Ki, config.Kd, config.minDutyCycle, 100.0);
 }
 
 void loop() {
@@ -210,16 +227,19 @@ void loop() {
   MenuControlSignal menuSignal = IDLE;
   MenuContext menuContext = menuController->update(menuSignal);
   renderMenuContext(menuContext);
+  char key;
   while(true){
-    keypad->pollStateBlocking(KeyState::KEY_DOWN);
-    char key = keypad->buffer[0].key;
-    if(key == ENTER){ menuSignal = SELECT; }
-    else if(key == BACK){ menuSignal = RETRACT; }
-    else if(key == UP){ menuSignal = PREVITEM; }
-    else if(key == DOWN){ menuSignal = NEXTITEM; }
-    else{ menuSignal = IDLE; }
-    menuContext = menuController->update(menuSignal);
-    renderMenuContext(menuContext);
+    if(keypad->pollState(KeyState::KEY_DOWN) != 0){
+      key = keypad->buffer[0].key;
+      if(key == ENTER){ menuSignal = SELECT; }
+      else if(key == BACK){ menuSignal = RETRACT; }
+      else if(key == UP){ menuSignal = PREVITEM; }
+      else if(key == DOWN){ menuSignal = NEXTITEM; }
+      else{ menuSignal = IDLE; }
+      menuContext = menuController->update(menuSignal);
+      renderMenuContext(menuContext);
+    }
+    delay(10);
   }
 }
 
@@ -227,7 +247,6 @@ void loop() {
 // ============================== Core 1 =====================================
 void setup1() {
   motorDriver = new RP2040_PWM(motor_pwm_pin, motorPWMFrequency, 0.0);
-  pidController = new PID_controller(config.Kp, config.Ki, config.Kd, controllerMinOutput, controllerMaxOutput);
   coreLoop = new SWtimer(coreLoopInterval, true);
 
   pinMode(spinner_power_enable_pin, OUTPUT);
@@ -254,7 +273,7 @@ void loop1() {
       if(motorEnabled){
         float currentDutyCycle;
         if(pidEnabled){
-          currentDutyCycle = pidController->compute(rpmTarget, currentRPM, coreLoop->previousTrueElapsedInterval);
+          currentDutyCycle = 100.0 - pidController->compute(rpmTarget, currentRPM, coreLoopInterval);
         }
         else{
           currentDutyCycle = analogDutyCycle;
@@ -344,7 +363,7 @@ void loadConfiguration(volatile Config &config) {
     return;
   }
 
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<512> doc;
   DeserializationError error = deserializeJson(doc, file);
   if (error){
     printlcdErrorMsg("Failed to\ndeserialize data!");
@@ -355,6 +374,9 @@ void loadConfiguration(volatile Config &config) {
   config.Kp = doc["Kp"];
   config.Ki = doc["Ki"];
   config.Kd = doc["Kd"];
+  config.analogAlpha = doc["analogAlpha"];
+  config.rpmAlpha = doc["rpmAlpha"];
+  config.minDutyCycle = doc["minDutyCycle"];
   file.close();
 }
 
@@ -367,10 +389,13 @@ void saveConfiguration(volatile Config &config) {
     return;
   }
 
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<512> doc;
   doc["Kp"] = config.Kp;
   doc["Ki"] = config.Ki;
   doc["Kd"] = config.Kd;
+  doc["analogAlpha"] = config.analogAlpha;
+  doc["rpmAlpha"] = config.rpmAlpha;
+  doc["minDutyCycle"] = config.minDutyCycle;
   if (serializeJsonPretty(doc, file) == 0) {
     printlcdErrorMsg("Failed to\nserialize data!");
   }
@@ -380,11 +405,8 @@ void saveConfiguration(volatile Config &config) {
 void printlcdErrorMsg(char* text){
   printlcd(text);
   while(true){
-    keypad->pollBlocking();
-    if(keypad->getPressedKeys() > 0){
-      if(keypad->buffer[0].key == ENTER || keypad->buffer[0].key == BACK){
-        return;
-      }
+    if(keypad->pollStateBlocking(KeyState::KEY_DOWN) > 0){
+      return;
     }
   }
 }
@@ -404,12 +426,15 @@ void renderMenuContext(MenuContext menuContext){
 
 void enableMotor(){
   currentRPM = 0.0;
+  rpmTarget = 0.0;
+  motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 100.0);
   digitalWrite(spinner_running_led_pin, HIGH);
   digitalWrite(spinner_power_enable_pin, HIGH);
   motorEnabled = true;
 }
 
 void disableMotor(){
+  rpmTarget = 0.0;
   motorDriver->setPWM(motor_pwm_pin, motorPWMFrequency, 0.0);
   digitalWrite(spinner_running_led_pin, LOW);
   digitalWrite(spinner_power_enable_pin, LOW);
@@ -432,10 +457,7 @@ SpinnerJob* loadJob(File file){
     return nullptr;
   }
   SpinnerJob* job = new SpinnerJob(file.name());
-  if(job == nullptr){ 
-    rebootWithText(100, "Out of memory!\n@loadJob-1");
-    return nullptr;
-  }
+  panicIfOOM(job, "@loadJob-1");
   if(rp2040.getFreeHeap() < 15000){
     delete job;
     rebootWithText(100, "Out of memory!\n@loadJob-2");
@@ -456,7 +478,8 @@ SpinnerJob* loadJob(File file){
     .Ki = doc["Ki"],
     .Kd = doc["Kd"],
     .analogAlpha = doc["analogAlpha"],
-    .rpmAlpha = doc["rpmAlpha"]
+    .rpmAlpha = doc["rpmAlpha"],
+    .minDutyCycle = 0.0
   };
   job->addConfig(jobConfig);
   for(int i = 0; i < length; i++){
@@ -464,15 +487,15 @@ SpinnerJob* loadJob(File file){
     job->sequence[i].task = doc["sequence"][i]["task"];
     job->sequence[i].rpm = doc["sequence"][i]["rpm"];
   }
-  doc.~BasicJsonDocument();
+  //doc.~BasicJsonDocument();
   return job;
 }
 
 bool saveJob(SpinnerJob* job, const char* directoryPath){
   char fullPath[100] = "";
   strcat(fullPath, directoryPath);
-  strcat(fullPath, "/");
   strcat(fullPath, job->name);
+  printlcd(fullPath);
   File file = SD.open(fullPath, FILE_WRITE);
   if(!file){ 
     printlcdErrorMsg("Error saving job\n@saveJob-0");
@@ -494,12 +517,10 @@ bool saveJob(SpinnerJob* job, const char* directoryPath){
     doc["sequence"][i]["rpm"] = job->sequence[i].rpm;
   }
   if (serializeJsonPretty(doc, file) == 0) {
-    printlcdErrorMsg("Error saving job\n@saveJob-1");
-    doc.~BasicJsonDocument();
+    printlcdErrorMsg("Error saving job\n@saveJob-2");
     file.close();
     return false;
   }
-  doc.~BasicJsonDocument();
   file.close();
   return true;
 }
@@ -510,7 +531,7 @@ bool askYesNo(char* text){
   while(true){
     keypad->pollBlocking();
     if(keypad->getKeysWithState(KeyState::KEY_DOWN) > 0){
-      if(keypad->buffer[0].key == YES){
+      if(keypad->buffer[0].key == YES || keypad->buffer[0].key == ENTER){
         return true;
       }
       else if(keypad->buffer[0].key == NO || keypad->buffer[0].key == BACK){
@@ -522,14 +543,12 @@ bool askYesNo(char* text){
 
 bool askYesNo(){
   while(true){
-    keypad->pollBlocking();
-    if(keypad->getKeysWithState(KeyState::KEY_DOWN) > 0){
-      if(keypad->buffer[0].key == YES){
-        return true;
-      }
-      else if(keypad->buffer[0].key == NO || keypad->buffer[0].key == BACK){
-        return false;
-      }
+    keypad->pollStateBlocking(KeyState::KEY_DOWN);
+    if(keypad->buffer[0].key == YES || keypad->buffer[0].key == ENTER){
+      return true;
+    }
+    else if(keypad->buffer[0].key == NO || keypad->buffer[0].key == BACK){
+      return false;
     }
   }
 }

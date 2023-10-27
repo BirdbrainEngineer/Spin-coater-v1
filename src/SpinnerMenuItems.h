@@ -14,5 +14,5 @@ void* runJobsMenuConstructor(char* caller);
 void* createJobMenuConstructor(char* caller);
 void* deleteJobMenuConstructor(char* caller);
 
-MenuData runJobsMenuForge();
-MenuData deleteJobsMenuForge();
+MenuData* runJobsMenuForge();
+MenuData* deleteJobsMenuForge();

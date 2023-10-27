@@ -6,6 +6,7 @@ struct Config {
   float Kd;
   float analogAlpha;
   float rpmAlpha;
+  float minDutyCycle;
 };
 
 #include <Arduino.h>

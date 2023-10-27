@@ -4,59 +4,58 @@
 
 #define cstr(x) const_cast<char*>(x)
 
-MenuItem mainMenuItems[5] = {
+const u8_t mainMenuSize = 5;
+MenuItem mainMenuItems[mainMenuSize] = {
     {cstr("Quick start"), MENU, quickStartMenuConstructor},
     {cstr("Jobs"), MENU, jobsMenuConstructor},
     {cstr("Test"), MENU, testMenuConstructor},
     {cstr("Calibration"), MENU, calibrationMenuConstructor},
     {cstr("Information"), MENU, informationMenuConstructor},
 };
-
-MenuItem QuickstartMenuItems[2] = {
-      {cstr("Programmed"), FUNC, runProgrammed},
+const u8_t quickstartMenuSize = 2;
+MenuItem QuickstartMenuItems[quickstartMenuSize] = {
+      {cstr("Programmed"), FUNC, runProgrammedJob},
       {cstr("Analog"), FUNC, runAnalog},
 };
-
-MenuItem JobsMenuItems[3] = {
+const u8_t jobsMenuSize = 3;
+MenuItem JobsMenuItems[jobsMenuSize] = {
       {cstr("Load job"), MENU, runJobsMenuConstructor},
       {cstr("Create job"), FUNC, createJob},
       {cstr("Delete job"), MENU, deleteJobMenuConstructor},
 };
-
-MenuItem TestMenuItems[3] = {
-      {cstr("Acceleration"), FUNC, accelerationTest},
-      {cstr("Speed"), FUNC, speedTest},
+const u8_t testMenuSize = 2;
+MenuItem TestMenuItems[testMenuSize] = {
+      {cstr("Spinner params."), FUNC, motorTest},
       {cstr("PID"), FUNC, pidTestAvailable ? pidTest : doNothing},
 };
-
-MenuItem CalibrationMenuItems[6] = {
-      {cstr("Automatic"), FUNC, automaticCalibration},
+const u8_t calibrationMenuSize = 6;
+MenuItem CalibrationMenuItems[calibrationMenuSize] = {
       {cstr("Set Kp"), FUNC, setKp},
       {cstr("Set Ki"), FUNC, setKi},
       {cstr("Set Kd"), FUNC, setKd},
+      {cstr("Min duty cycle"), FUNC, updateMinDutyCycle},
       {cstr("Analog-in alpha"), FUNC, setAnalogAlpha},
       {cstr("RPM alpha"), FUNC, setRpmAlpha},
 };
-
-MenuItem InformationMenuItems[3] = {
+const u8_t informationMenuSize = 3;
+MenuItem InformationMenuItems[informationMenuSize] = {
       {cstr("Device info."), FUNC, displayDeviceInformation},
       {cstr("HARDWARE LICENSE"), FUNC, displayLicenseCC},
       {cstr("SOFTWARE LICENSE"), FUNC, displayLicenseMIT},
 };
-
-MenuItem emptyMenuItems[1] = {
+const u8_t emptyMenuSize = 1;
+MenuItem emptyMenuItems[emptyMenuSize] = {
       {cstr("Nothing here!"), FUNC, doNothing},
 };
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@ Static Menus @@@@@@@@@@@@@@@@@@@@@@@@
-Menu mainMenu = Menu(mainMenuItems);
-Menu quickStartMenu = Menu(QuickstartMenuItems);
-Menu jobsMenu = Menu(JobsMenuItems);
-Menu testMenu = Menu(TestMenuItems);
-Menu calibrationMenu = Menu(CalibrationMenuItems);
-Menu informationMenu = Menu(InformationMenuItems);
-
-Menu emptyMenu = Menu(emptyMenuItems);
+Menu mainMenu = Menu(MenuData{mainMenuSize, mainMenuItems});
+Menu quickStartMenu = Menu(MenuData{quickstartMenuSize, QuickstartMenuItems});
+Menu jobsMenu = Menu(MenuData{jobsMenuSize, JobsMenuItems});
+Menu testMenu = Menu(MenuData{testMenuSize, TestMenuItems});
+Menu calibrationMenu = Menu(MenuData{calibrationMenuSize, CalibrationMenuItems});
+Menu informationMenu = Menu(MenuData{informationMenuSize, InformationMenuItems});
+Menu emptyMenu = Menu(MenuData{emptyMenuSize, emptyMenuItems});
 
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@ Static menu constructors @@@@@@@@@@@@@@@@@@@@@@@@
@@ -72,18 +71,21 @@ void* informationMenuConstructor(char* caller) { return &informationMenu; }
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@ Dynamic menu constructors @@@@@@@@@@@@@@@@@@@@@@@@
 
 
-void* runJobsMenuConstructor(char* caller){return new Menu(runJobsMenuForge); }
-void* deleteJobMenuConstructor(char* caller){return new Menu(deleteJobsMenuForge); }
+void* runJobsMenuConstructor(char* caller){ return new Menu(runJobsMenuForge); }
+void* deleteJobMenuConstructor(char* caller){ return new Menu(deleteJobsMenuForge); }
 
-MenuData runJobsMenuForge(){
-      MenuData data;
+MenuData* runJobsMenuForge(){
       if(jobTable->numJobs == 0){ 
-            data.size = 1;
-            data.items = new MenuItem{cstr("No jobs!"), FUNC, doNothing};
-            return data;
+            MenuItem* newItems = (MenuItem*)malloc(sizeof(MenuItem) * emptyMenuSize);
+            memcpy(newItems, emptyMenuItems, sizeof(MenuItem) * emptyMenuSize);
+            return new MenuData{emptyMenuSize, newItems};
       }
-      data.size = jobTable->numJobs + 1;
-      MenuItem* items = (MenuItem*)malloc(sizeof(MenuItem) * data.size);
+      MenuData* data = new MenuData;
+      panicIfOOM(data, "@runJobsForge-0");
+      data->size = jobTable->numJobs + 1;
+      MenuItem* items = (MenuItem*)malloc(sizeof(MenuItem) * data->size);
+      panicIfOOM(items, "@runJobsForge-1");
+      data->items = items;
       items[0].name = const_cast<char*>("Search for a job");
       items[0].type = FUNC;
       items[0].call = searchJobForRunning;
@@ -95,15 +97,18 @@ MenuData runJobsMenuForge(){
       return data;
 }
 
-MenuData deleteJobsMenuForge(){
-      MenuData data;
+MenuData* deleteJobsMenuForge(){
       if(jobTable->numJobs == 0){ 
-            data.size = 1;
-            data.items = new MenuItem{cstr("No jobs!"), FUNC, doNothing};
-            return data;
+            MenuItem* newItems = (MenuItem*)malloc(sizeof(MenuItem) * emptyMenuSize);
+            memcpy(newItems, emptyMenuItems, sizeof(MenuItem) * emptyMenuSize);
+            return new MenuData{emptyMenuSize, newItems};
       }
-      data.size = jobTable->numJobs + 1;
-      MenuItem* items = (MenuItem*)malloc(sizeof(MenuItem) * data.size);
+      MenuData* data = new MenuData;
+      panicIfOOM(data, "@deleteForge-0");
+      data->size = jobTable->numJobs + 1;
+      MenuItem* items = (MenuItem*)malloc(sizeof(MenuItem) * data->size);
+      panicIfOOM(items, "@deleteForge-1");
+      data->items = items;
       items[0].name = const_cast<char*>("Search for a job");
       items[0].type = FUNC;
       items[0].call = searchJobForDeletion;

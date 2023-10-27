@@ -15,36 +15,43 @@ extern volatile bool pidEnabled;
 extern volatile float analogDutyCycle;
 extern volatile float pidDutyCycle;
 extern volatile bool motorEnabled;
-extern volatile double currentRPM;
+extern volatile float currentRPM;
+extern volatile unsigned long rpmTimer;
 extern volatile float rpmTarget;
 extern volatile Config config;
 extern volatile Config storedConfig;
 extern JobTable* jobTable;
 extern const u8_t maxJobNameLength;
 extern const char jobsPath[];
-extern bool quickRunAvailable;
+extern bool quickRunJobAvailable;
 extern SpinnerJob* pidTestJob;
 extern SpinnerJob* quickRunJob;
 extern const unsigned long coreLoopInterval;
 extern RP2040_PWM* motorDriver;
+extern PID_controller* pidController;
 extern const int motor_pwm_pin;
 extern const float motorPWMFrequency;
+extern volatile float analogAlpha;
+extern volatile float rpmAlpha;
 
 extern const int spinner_running_led_pin;
 extern const int spinner_power_enable_pin;
 
 
+void stopTest(const char* text);
 
 void* deleteJob(char* caller);
 void* runJob(char* caller);
+bool runJob(SpinnerJob* job);
 
 void* runProgrammed(char* caller);
+void* runProgrammedJob(char* caller);
 void* runAnalog(char* caller);
 
-void* automaticCalibration(char* caller);
 void* setKp(char* caller);
 void* setKi(char* caller);
 void* setKd(char* caller);
+void* updateMinDutyCycle(char* caller);
 void* setAnalogAlpha(char* caller);
 void* setRpmAlpha(char* caller);
 void* doNothing(char*caller);
@@ -61,35 +68,29 @@ void* createJob(char* caller);
 
 SpinnerJob* jobCreator();
 
-void* accelerationTest(char* caller);
-void* speedTest(char* caller);
+bool accelerationTest(float* acceleration, float* deceleration, float maxSpeed, float minSpeed);
+bool speedTest(float* maxSpeed, float* minSpeed);
 void* pidTest(char* caller);
-
-
-
-const char projectName[] =      " BB Spin Coater";
-const char projectVersion[] =   "     v0.1.0";
-const char firmwareVersion[] = "0.1.0";
-const char hardwareVersion[] = "0.1.0";
+void* motorTest(char* caller);
 
 
 #define DEVICEINFOLEN 15
 const char deviceInfo[DEVICEINFOLEN][20] = {
-    *projectName,
-    *projectVersion,
-    *"Firmware version",
-    *firmwareVersion,
-    *"Hardware version",
-    *hardwareVersion,
-    *"LICENSES:",
-    *"Software:",
-    *"MIT",
-    *"Hardware:",
-    *"CC BY-SA 4.0",
-    *"Programming:",
-    *"Birdbrain",
-    *"Hardware design:",
-    *"Birdbrain"
+    " BB Spin Coater",
+    "     v0.1.0",
+    "Firmware version",
+    "0.1.0",
+    "Hardware version",
+    "0.1.0",
+    "Programming:",
+    "Birdbrain",
+    "Hardware design:",
+    "Birdbrain",
+    "LICENSES:",
+    "Software:",
+    "MIT",
+    "Hardware:",
+    "CC BY-SA 4.0"
 };
 
 

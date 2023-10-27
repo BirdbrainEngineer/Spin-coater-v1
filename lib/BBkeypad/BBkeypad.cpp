@@ -82,7 +82,7 @@ bool BBkeypad::poll(){
                         case KeyState::IDLE: break;
 
                         case KeyState::PRESSED:
-                            if(currentTime - key->timestamp > this->debounceInterval){ break; }
+                            if(currentTime - key->timestamp < this->debounceInterval){ break; }
                             key->state = KeyState::KEY_UP;
                             key->timestamp = currentTime;
                             keyActivity = true;

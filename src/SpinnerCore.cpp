@@ -1,19 +1,31 @@
 #include <main.h>
 
-SpinnerJob::SpinnerJob(char* name){
+SpinnerJob::SpinnerJob(char* jobName){
     this->name = (char*)malloc(sizeof(char) * maxJobNameLength);
-    panicIfOOM(this->name, "@SpinnerJob-name");
+    panicIfOOM(this->name, "@SpinnerJob-0");
     int i = 0;
-    while(name[i] != '\0' && i < maxJobNameLength - 1){
-        this->name[i] = name[i];
+    while(jobName[i] != '\0' && i < maxJobNameLength - 2){
+        this->name[i] = jobName[i];
         i++;
     }
-    this->name[maxJobNameLength - 1] = '\0';
+    this->name[i] = '\0';
+    this->sequence = nullptr;
 }
 
 SpinnerJob::~SpinnerJob(){
     free(this->name);
     if(this->sequence != nullptr){free(this->sequence);}
+}
+
+void SpinnerJob::init(u8_t size){
+    this->sequence = (SpinnerAction*)malloc(sizeof(SpinnerAction) * size);
+    panicIfOOM(this->sequence, "@SpinnerJob-1");
+    this->sequenceLength = size;
+    this->index = 0;
+    this->currentTargetRpm = 0.0;
+    this->nextTransitionTime = 0;
+    this->previousRpm = 0.0;
+    this->stopped = true;
 }
 
 bool SpinnerJob::start(){ //returns false if the job could not be started
@@ -32,34 +44,44 @@ bool SpinnerJob::update(){ //returns false if the job has finished
     if(currentTime > nextTransitionTime){
         this->previousRpm =this->sequence[this->index].rpm;
         this->index++;
-        this->previousTransitionTime = this->nextTransitionTime;
+        this->previousTransitionTime = currentTime;
         this->nextTransitionTime = this->previousTransitionTime + this->sequence[this->index].duration;
+        if(this->sequence[this->index].task == END){ 
+            disableMotor();
+            this->currentTargetRpm = 0.0;
+            this->stopped = true;
+            return false;
+        }
         return this->update();
     }
     switch(this->sequence[this->index].task){
-        case HOLD:  this->currentTargetRpm = this->sequence[this->index].rpm;
-                    return true;
-
-        case RAMP:  {
-                        float ramp = (currentTime - this->previousTransitionTime) / this->sequence[this->index].duration;
-                        this->currentTargetRpm = this->previousRpm + (this->sequence[this->index].rpm - this->previousRpm) * ramp;
-                        return true;
-                    }
-
-        case END:   pidEnabled = false;
-                    disableMotor();
-                    this->currentTargetRpm = 0.0;
-                    this->stopped = true;
-                    return false;
-
-        case NONE:  this->nextTransitionTime = this->previousTransitionTime;
-                    return this->update();
-
-        default:    pidEnabled = false;
-                    disableMotor();
-                    this->stopped = true;
-                    printlcdErrorMsg("    Illegal\nSpinnerAction!");
-                    return false;
+        case HOLD:{
+            this->currentTargetRpm = this->sequence[this->index].rpm;
+            return true;
+        }
+        case RAMP:{
+            float ramp = (float)(currentTime - this->previousTransitionTime) / (float)this->sequence[this->index].duration;
+            this->currentTargetRpm = this->previousRpm + ((this->sequence[this->index].rpm - this->previousRpm) * ramp);
+            return true;
+        }
+        case END:{
+            pidEnabled = false;
+            disableMotor();
+            this->currentTargetRpm = 0.0;
+            this->stopped = true;
+            return false;
+        }
+        case NONE:{
+            this->nextTransitionTime = this->previousTransitionTime;
+            return this->update();
+        }
+        default:{
+            pidEnabled = false;
+            disableMotor();
+            this->stopped = true;
+            printlcdErrorMsg("    Illegal\nSpinnerAction!");
+            return false;
+        }
     }
 }
 
@@ -94,17 +116,6 @@ bool SpinnerJob::addAction(u8_t index, SpinnerAction action){
     return true;
 }
 
-void SpinnerJob::init(u8_t size){
-    this->sequence = (SpinnerAction*)malloc(sizeof(SpinnerAction) * size);
-    panicIfOOM(this->sequence, "@SpinnerJob-sequence");
-    this->sequenceLength = size;
-    this->index = 0;
-    this->currentTargetRpm = 0.0;
-    this->nextTransitionTime = 0;
-    this->previousRpm = 0.0;
-    this->stopped = true;
-}
-
 void SpinnerJob::addConfig(Config config){
     this->config.Kd = config.Kd;
     this->config.Ki = config.Ki;
@@ -122,11 +133,11 @@ void SpinnerJob::changeName(char* newName){
     this->name = (char*)malloc(sizeof(char) * maxJobNameLength);
     panicIfOOM(this->name, "@SpinnerJob-name");
     int i = 0;
-    while(name[i] != '\0' && i < maxJobNameLength - 1){
-        this->name[i] = name[i];
+    while(newName[i] != '\0' && i < maxJobNameLength - 2){
+        this->name[i] = newName[i];
         i++;
     }
-    this->name[maxJobNameLength - 1] = '\0';
+    this->name[i] = '\0';
 }
 
 

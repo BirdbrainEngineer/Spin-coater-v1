@@ -35,18 +35,19 @@ class Menu {
         u8_t size;
         MenuItem* items;
         bool ownsItems;
-        Menu(MenuData (*menuDataConstructor)());
-        Menu(MenuItem* items);
+        Menu(MenuData* (*menuDataConstructor)());
+        Menu(MenuData data);
         ~Menu();
         void populate();
     private:
-        MenuData (*menuDataConstructor)();
+        MenuData* (*menuDataConstructor)();
 };
 
 class MenuController{
     public:
         MenuContext currentMenuContext;
-        MenuController(Menu* (*mainMenuConstructor)());
+        void (*errorhandler)(char* errorText);
+        MenuController(Menu* (*mainMenuConstructor)(), void (*errorHandler)(char* errorText) = nullptr);
         ~MenuController();
         bool init(u8_t maxMenuDepth, void (*errorHandler)() = nullptr);
         MenuContext update(MenuControlSignal signal);

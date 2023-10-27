@@ -16,15 +16,15 @@ struct Key {
 };
 class BBkeypad {
     private:
-        u8_t numRows;
-        u8_t numColumns;
         unsigned long holdTime; // milliseconds
         unsigned long debounceInterval; // milliseconds
         const u8_t* columnPins;
         const u8_t* rowPins;
-        Key* keypad;
 
     public:
+        u8_t numRows;
+        u8_t numColumns;
+        Key* keypad;
         const unsigned long DEFAULT_DEBOUNCE_INTERVAL = 50UL; // Default debounce interval in milliseconds
         const unsigned long DEFAULT_HOLD_TIME = 1000UL; // Default hold time in milliseconds
 

@@ -27,7 +27,7 @@ class SpinnerJob{
         bool stopped;
         Config config; 
 
-        SpinnerJob(char* name);
+        SpinnerJob(char* jobName);
         ~SpinnerJob();
         bool start();
         bool update();

@@ -1,13 +1,14 @@
 #include <Menu.h>
 
-Menu::Menu(MenuData menuDataConstructor()){
+Menu::Menu(MenuData* (*menuDataConstructor)()){
     this->menuDataConstructor = menuDataConstructor;
+    this->items = nullptr;
     this->ownsItems = true;
 }
 
-Menu::Menu(MenuItem* items){
-    this->size = 5;//sizeof(items) / sizeof(items[0]); 
-    this->items = items;
+Menu::Menu(MenuData data){
+    this->size = data.size;
+    this->items = data.items;
     this->ownsItems = false;
 }
 
@@ -22,14 +23,17 @@ void Menu::populate(){
         if(this->items != nullptr){
             free(this->items);
         }
-        MenuData data = this->menuDataConstructor();
-        this->size = data.size;
-        this->items = data.items;
+        MenuData* data = this->menuDataConstructor();
+        this->size = data->size;
+        this->items = data->items;
+        delete data;
     }
 }
 
-MenuController::MenuController(Menu* (*mainMenuConstructor)()){
+MenuController::MenuController(Menu* (*mainMenuConstructor)(), void (*errorHandler)(char* errorText)){
     this->mainMenuConstructor = mainMenuConstructor;
+    if(errorHandler == nullptr){ this->errorhandler = [](char* errorText){ return; }; }
+    else{ this->errorhandler = errorHandler; }
 }
 
 MenuController::~MenuController(){
@@ -60,63 +64,66 @@ bool MenuController::init(u8_t maxMenuDepth, void (*errorHandler)()) {
 }
 MenuContext MenuController::update(MenuControlSignal signal){
     switch(signal){
-        case IDLE:      return this->currentMenuContext;
+        case IDLE: return this->currentMenuContext;
 
-        case SELECT:    {
-                            switch(this->getMenuItemAtPointer()->type){
-                                case FUNC:  {
-                                                this->getMenuItemAtPointer()->call(this->getMenuItemAtPointer()->name);
-                                                this->menuStack[this->currentStackDepth]->populate();
-                                                if(this->menuStack[this->currentStackDepth]->size <= this->stackPointer[this->currentStackDepth]){
-                                                    this->stackPointer[this->currentStackDepth] = 0;
-                                                }
-                                                break;
-                                            }   
+        case SELECT:{
+            switch(this->getMenuItemAtPointer()->type){
+                case FUNC:{
+                    this->getMenuItemAtPointer()->call(this->getMenuItemAtPointer()->name);
+                    this->menuStack[this->currentStackDepth]->populate();
+                    if(this->menuStack[this->currentStackDepth]->size <= this->stackPointer[this->currentStackDepth]){
+                        this->stackPointer[this->currentStackDepth] = 0;
+                    }
+                    break;
+                }   
+                case MENU:{
+                    Menu* newMenu = (Menu*)this->getMenuItemAtPointer()->call(this->getMenuItemAtPointer()->name);
+                    if(newMenu == nullptr) {
+                        break;
+                    }
+                    this->currentStackDepth++;
+                    this->menuStack[this->currentStackDepth] = newMenu;
+                    this->menuStack[this->currentStackDepth]->populate();
+                    this->stackPointer[this->currentStackDepth] = 0;
+                    break;
+                }
+                default:    
+                    break;
+            }
+            break;
+        }
 
-                                case MENU:  {
-                                                Menu* newMenu = (Menu*)this->getMenuItemAtPointer()->call(this->getMenuItemAtPointer()->name);
-                                                if(newMenu == nullptr){ break; }
-                                                this->currentStackDepth++;
-                                                this->menuStack[this->currentStackDepth] = newMenu;
-                                                this->menuStack[this->currentStackDepth]->populate();
-                                                this->stackPointer[this->currentStackDepth] = 0;
-                                                break;
-                                            }
+        case RETRACT:{
+            if(this->currentStackDepth > 0){
+                if(this->menuStack[this->currentStackDepth]->ownsItems){
+                    delete this->menuStack[this->currentStackDepth];
+                }
+                this->menuStack[this->currentStackDepth] = nullptr;
+                this->stackPointer[this->currentStackDepth] = 0;
+                this->currentStackDepth--;
+                this->menuStack[this->currentStackDepth]->populate();
+            }
+            else{
+                this->stackPointer[0] = 0; 
+            }
+            break;
+        }
 
-                                default:    break;
-                            }
-                            break;
-                        }
+        case PREVITEM:{
+            this->stackPointer[this->currentStackDepth] =   
+                this->stackPointer[this->currentStackDepth] == 0 ?
+                this->menuStack[this->currentStackDepth]->size - 1 :
+                this->stackPointer[this->currentStackDepth] - 1;
+            break;
+        }
 
-        case RETRACT:   {
-                            if(this->currentStackDepth > 0){
-                                if(this->menuStack[this->currentStackDepth]->ownsItems){
-                                    delete this->menuStack[this->currentStackDepth];
-                                }
-                                this->menuStack[this->currentStackDepth] = nullptr;
-                                this->stackPointer[this->currentStackDepth] = 0;
-                                this->currentStackDepth--;
-                                this->menuStack[this->currentStackDepth]->populate();
-                                break;
-                            }
-                            this->stackPointer[0] = 0;
-                        }
-
-        case PREVITEM:    {
-                            this->stackPointer[this->currentStackDepth] =   
-                                this->stackPointer[this->currentStackDepth] == 0 ?
-                                this->menuStack[this->currentStackDepth]->size - 1 :
-                                this->stackPointer[this->currentStackDepth] - 1;
-                            break;
-                        }
-
-        case NEXTITEM:  {
-                            this->stackPointer[this->currentStackDepth] =   
-                                (this->stackPointer[this->currentStackDepth] == (this->menuStack[this->currentStackDepth]->size - 1)) ?
-                                0 :
-                                this->stackPointer[this->currentStackDepth] + 1;
-                            break;
-                        }
+        case NEXTITEM:{
+            this->stackPointer[this->currentStackDepth] =   
+                (this->stackPointer[this->currentStackDepth] == (this->menuStack[this->currentStackDepth]->size - 1)) ?
+                0 :
+                this->stackPointer[this->currentStackDepth] + 1;
+            break;
+        }
     }
     this->currentMenuContext.itemSelected = this->stackPointer[this->currentStackDepth] + 1;
     this->currentMenuContext.name = this->menuStack[this->currentStackDepth]->items[this->stackPointer[this->currentStackDepth]].name;
