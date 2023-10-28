@@ -18,7 +18,7 @@ void* runAnalog(char* caller){
             lcd.print("        ");
         }
         if(pollKeypadForSpecificCharPressed(BACK)){
-            stopTest("Stopped.");
+            stopTest("Exiting analog\ncontrol mode.");
             disableMotor();
             delete timer;
             return nullptr;
@@ -27,48 +27,71 @@ void* runAnalog(char* caller){
 }
 
 void* setKp(char* caller){
-    float newKp;
-    if(setUserVariable("Set Kp...", &newKp)){
-        config.Kp = newKp;
+    lcd.clear();
+    lcd.print("Set Kp (");
+    lcd.print(config.Kp, 4);
+    lcd.print(")");
+    TextBuffer* input = new TextBuffer(8);
+    panicIfOOM(input, "@setKp-0");
+    if(getUserInput(input, true)){
+        config.Kp = atof(input->buffer);
         saveConfiguration(config);
+        pidController->setPID(config.Kp, config.Ki, config.Kd);
     }
-    pidController->setPID(config.Kp, config.Ki, config.Kd);
     return nullptr;
 }
 void* setKi(char* caller){
-    float newKi;
-    if(setUserVariable("Set Ki...", &newKi)){
-        config.Ki = newKi;
+    lcd.clear();
+    lcd.print("Set Ki (");
+    lcd.print(config.Ki, 4);
+    lcd.print(")");
+    TextBuffer* input = new TextBuffer(8);
+    panicIfOOM(input, "@setKi-0");
+    if(getUserInput(input, true)){
+        config.Ki = atof(input->buffer);
         saveConfiguration(config);
+        pidController->setPID(config.Kp, config.Ki, config.Kd);
     }
-    pidController->setPID(config.Kp, config.Ki, config.Kd);
     return nullptr;
 }
 void* setKd(char* caller){
-    float newKd;
-    if(setUserVariable("Set Kd...", &newKd)){
-        config.Kd = newKd;
+    lcd.clear();
+    lcd.print("Set Kd (");
+    lcd.print(config.Kd, 4);
+    lcd.print(")");
+    TextBuffer* input = new TextBuffer(8);
+    panicIfOOM(input, "@setKd-0");
+    if(getUserInput(input, true)){
+        config.Kd = atof(input->buffer);
         saveConfiguration(config);
+        pidController->setPID(config.Kp, config.Ki, config.Kd);
     }
-    pidController->setPID(config.Kp, config.Ki, config.Kd);
     return nullptr;
 }
 void* setAnalogAlpha(char* caller){
-    float newAlpha;
-    if(setUserVariable("Analog-in alpha...", &newAlpha)){
-        config.analogAlpha = newAlpha;
+    lcd.clear();
+    lcd.print("Set Kp (");
+    lcd.print(config.analogAlpha, 4);
+    lcd.print(")");
+    TextBuffer* input = new TextBuffer(8);
+    panicIfOOM(input, "@setAnalogAlpha-0");
+    if(getUserInput(input, true)){
+        config.analogAlpha = atof(input->buffer);
         saveConfiguration(config);
     }
-    analogAlpha = newAlpha;
     return nullptr;
 }
 void* setRpmAlpha(char* caller){
-    float newAlpha;
-    if(setUserVariable("Set RPM alpha...", &newAlpha)){
-        config.rpmAlpha = newAlpha;
+    lcd.clear();
+    lcd.print("Set Kp (");
+    lcd.print(config.rpmAlpha, 4);
+    lcd.print(")");
+    TextBuffer* input = new TextBuffer(8);
+    panicIfOOM(input, "@setKp-0");
+    if(getUserInput(input, true)){
+        config.rpmAlpha = atof(input->buffer);
         saveConfiguration(config);
     }
-    rpmAlpha = newAlpha;
     return nullptr;
 }
 
@@ -96,7 +119,7 @@ SpinnerJob* jobCreator(){ //DELICIOUS spaghetti!
       SpinnerTask task = RAMP;
       while(sequenceIndex < UINT8_MAX){
             lcd.clear();
-            lcd.print(sequenceIndex);
+            lcd.print(sequenceIndex + 1);
             lcd.print(": ");
             switch(queryIndex){
                   case 0: {
@@ -194,21 +217,10 @@ SpinnerJob* jobCreator(){ //DELICIOUS spaghetti!
             job->sequence[i].rpm = sequence[i].rpm;
             job->sequence[i].duration = sequence[i].duration;
       }
-      auto jobConfig = Config{config.Kp, config.Ki, config.Kd, config.analogAlpha, config.rpmAlpha};
-      if(askYesNo("Use current PID\nsettings?")){
-            job->addConfig(jobConfig);
-      }
-      else {
-            printlcd("Enter Kp:");
-            input->clear();
-            if(getUserInput(input, true)){ jobConfig.Kp = atof(input->buffer); }
-            printlcd("Enter Ki:");
-            input->clear();
-            if(getUserInput(input, true)){ jobConfig.Ki = atof(input->buffer); }
-            printlcd("Enter Kd:");
-            input->clear();
-            if(getUserInput(input, true)){ jobConfig.Kd = atof(input->buffer); }
-            job->addConfig(jobConfig);
+      auto jobConfig = Config{config.Kp, config.Ki, config.Kd};
+      job->addConfig(jobConfig);
+      if(askYesNo("Embed current\nPID settings?")){
+         job->useEmbeddedPIDConstants = true;   
       }
       delete input;
       free(sequence);
@@ -247,6 +259,7 @@ void* runJob(char* caller){
     config.Kp = job->getConfig()->Kp;
     config.Ki = job->getConfig()->Ki;
     config.Kd = job->getConfig()->Kd;
+    if(job->useEmbeddedPIDConstants){ pidController->setPID(config.Kp, config.Ki, config.Kd); }
     job->start();
     displayTimer->start();
     updateTimer->start();
@@ -259,6 +272,7 @@ void* runJob(char* caller){
                 config.Kp = storedConfig.Kp;
                 config.Ki = storedConfig.Ki;
                 config.Kd = storedConfig.Kd;
+                if(job->useEmbeddedPIDConstants){ pidController->setPID(config.Kp, config.Ki, config.Kd); }
                 job->reset();
                 return nullptr;
             }
@@ -274,6 +288,7 @@ void* runJob(char* caller){
                     config.Kp = storedConfig.Kp;
                     config.Ki = storedConfig.Ki;
                     config.Kd = storedConfig.Kd;
+                    if(job->useEmbeddedPIDConstants){ pidController->setPID(config.Kp, config.Ki, config.Kd); }
                     job->reset();
                     return nullptr;
                 }
@@ -540,6 +555,10 @@ void* createJob(char* caller){
         }
     }
     SpinnerJob* job = jobCreator();
+    if(job == nullptr){
+        delete name;
+        return nullptr;
+    }
     job->changeName(name->buffer);
     if(!askYesNo("Save the\ncreated job?")){
         delete name;
@@ -569,14 +588,16 @@ void* runProgrammedJob(char* caller){
     SpinnerJob* job = jobCreator();
     if(job == nullptr){ return nullptr; }
     job->changeName(const_cast<char*>("quick"));
-    if(SD.exists("/quick")){ SD.remove("/quick"); }
-    saveJob(job, "/");
+    if(memoryGood){
+        if(SD.exists("/quick")){ SD.remove("/quick"); }
+        saveJob(job, "/");
+    }
 
     do{
         if(!runJob(job)){ return nullptr; }
     } while(askYesNo("Run job again?"));
     
-    if(askYesNo("Save job\npermanently?")){
+    if(memoryGood && askYesNo("Save job\npermanently?")){
         TextBuffer* name = new TextBuffer(maxJobNameLength);
         panicIfOOM(name, "@runProg.Job-2");
 

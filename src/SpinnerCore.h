@@ -25,7 +25,8 @@ class SpinnerJob{
         u8_t index;
         float currentTargetRpm;
         bool stopped;
-        Config config; 
+        Config config;
+        bool useEmbeddedPIDConstants;
 
         SpinnerJob(char* jobName);
         ~SpinnerJob();

@@ -26,7 +26,7 @@ MenuItem JobsMenuItems[jobsMenuSize] = {
 const u8_t testMenuSize = 2;
 MenuItem TestMenuItems[testMenuSize] = {
       {cstr("Spinner params."), FUNC, motorTest},
-      {cstr("PID"), FUNC, pidTestAvailable ? pidTest : doNothing},
+      {cstr("PID"), FUNC, pidTestConstructor},
 };
 const u8_t calibrationMenuSize = 6;
 MenuItem CalibrationMenuItems[calibrationMenuSize] = {
@@ -62,10 +62,12 @@ Menu emptyMenu = Menu(MenuData{emptyMenuSize, emptyMenuItems});
 
 Menu* mainMenuConstructor() { return &mainMenu; }
 void* quickStartMenuConstructor(char* caller){ return &quickStartMenu; }
-void* jobsMenuConstructor(char* caller) { return &jobsMenu; }
+void* jobsMenuConstructor(char* caller) { return memoryGood ? &jobsMenu : &emptyMenu; }
 void* testMenuConstructor(char* caller) { return &testMenu; }
 void* calibrationMenuConstructor(char* caller) { return &calibrationMenu; }
 void* informationMenuConstructor(char* caller) { return &informationMenu; }
+
+void* pidTestConstructor(char* caller){ return (pidTestAvailable && memoryGood) ? pidTest(caller) : doNothing(caller); }
 
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@ Dynamic menu constructors @@@@@@@@@@@@@@@@@@@@@@@@

@@ -64,14 +64,14 @@ char UP = 'C';
 char DOWN = 'D';
 char YES = 'A';
 char NO = 'B';
-char DOT = 'A';
+char DOT = 'D';
 const u8_t rowPins[keypadRows] = {membrane_row_0_pin, membrane_row_1_pin, membrane_row_2_pin, membrane_row_3_pin};
 const u8_t colPins[keypadCols] = {membrane_col_0_pin, membrane_col_1_pin, membrane_col_2_pin, membrane_col_3_pin};
 const unsigned int keypadDebounceInterval = 10;
 const unsigned long coreLoopInterval = 500; //in micros
 volatile float analogAlpha = 0.01;
 volatile float rpmAlpha = 0.2;
-const Config defaultConfig = {0.3, 0.004, 0.0, 0.01, 0.2, 10.0};
+const Config defaultConfig = {0.6, 0.3, 0.002, 0.01, 0.2, 10.0};
 const char jobsPath[] = "/jobs/";
 const char jobsFolderPath[] = "/jobs";
 const char configFilePath[] = "/config";
@@ -170,9 +170,9 @@ void setup() {
 
   lcd.setCursor(0, 1);
   lcd.print("Init menu...     ");
+  menuController = new MenuController(mainMenuConstructor, printlcdErrorMsg);
+  menuController->init(10, reboot);
   if(memoryGood){
-    menuController = new MenuController(mainMenuConstructor, printlcdErrorMsg);
-    menuController->init(10, reboot);
     lcd.setCursor(0, 1);
     lcd.print("Init jobs...     ");
     jobTable = new JobTable(jobsFolderPath);
@@ -203,21 +203,6 @@ void setup() {
       else{ pidTestAvailable = true; }
     }
     defaultJobFile.close();
-
-    defaultJobFile = SD.open("/quick");
-    if(!defaultJobFile){ quickRunJobAvailable = false; }
-    else {
-      pidTestJob = loadJob(defaultJobFile);
-      if(pidTestJob == nullptr){
-        printlcdErrorMsg("Quick run job\nfile corrupted!");
-        quickRunJobAvailable = false;
-      }
-      else{ quickRunJobAvailable = true; }
-    }
-    defaultJobFile.close();
-  }
-  else{
-    //todo: init reduced menu
   }
   pidController = new PID_controller(config.Kp, config.Ki, config.Kd, config.minDutyCycle, 100.0);
 }
@@ -483,6 +468,7 @@ SpinnerJob* loadJob(File file){
     .minDutyCycle = 0.0
   };
   job->addConfig(jobConfig);
+  job->useEmbeddedPIDConstants = doc["use_embedded_pid_constants"];
   for(int i = 0; i < length; i++){
     job->sequence[i].duration = doc["sequence"][i]["duration"];
     job->sequence[i].task = doc["sequence"][i]["task"];
@@ -508,6 +494,7 @@ bool saveJob(SpinnerJob* job, const char* directoryPath){
   }
   DynamicJsonDocument doc(15000);
   doc["length"] = job->sequenceLength;
+  doc["use_embedded_pid_constants"] = job->useEmbeddedPIDConstants;
   doc["Kp"] = job->config.Kp;
   doc["Ki"] = job->config.Ki;
   doc["Kd"] = job->config.Kd;
@@ -597,16 +584,13 @@ bool getUserInput(TextBuffer* buffer, bool numeric){
       }
     }
     lcd.setCursor(0, 1);
-    lcd.print("                ");
-    lcd.setCursor(0, 1);
     lcd.print(buffer->buffer);
+    lcd.print("                ");
   }
 }
 
-bool setUserVariable(const char* displayText, float* variable){
+bool setUserVariable(float* variable){
     TextBuffer* textBuffer = new TextBuffer(17);
-    lcd.clear();
-    lcd.print(displayText);
     while(true){
         lcd.setCursor(0, 1);
         if(keypad->pollStateBlocking(KeyState::KEY_DOWN) > 0){

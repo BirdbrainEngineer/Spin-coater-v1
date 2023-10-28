@@ -10,6 +10,7 @@ SpinnerJob::SpinnerJob(char* jobName){
     }
     this->name[i] = '\0';
     this->sequence = nullptr;
+    this->useEmbeddedPIDConstants = false;
 }
 
 SpinnerJob::~SpinnerJob(){
