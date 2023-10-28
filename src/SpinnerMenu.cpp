@@ -303,6 +303,7 @@ void* runJob(char* caller){
             lcd.print(job->sequenceLength - 1);
             lcd.print(" RPM:");
             lcd.print(currentRPM, 0);
+            lcd.print("     ");
         }
     }
 }
@@ -885,11 +886,8 @@ void* pidTest(char* caller){
     const char animationGraphic[4] = {'|', '/', '-', 0x01};
     int animationIndex = 0;
     float totalError = 0.0;
-    float greatestOvershoot = 0.0;
-    lcd.clear();
-    lcd.print("Running test.. ");
-    lcd.setCursor(11, 0);
-    lcd.print(animationGraphic[0]);
+    double absoluteError = 0.0;
+    int samples = 0;
     pidEnabled = true;
     pidTestJob->start();
     updateTimer->start();
@@ -899,19 +897,18 @@ void* pidTest(char* caller){
             if(!pidTestJob->update()){
                 pidTestJob->stop();
                 lcd.clear();
-                lcd.print("Finishing...");
                 delete updateTimer;
                 delete displayTimer;
-                delay(2000);
                 pidTestJob->reset();
                 break;
             }
             else{
-                if(rpmTarget < currentRPM){
-                    greatestOvershoot = greatestOvershoot < (currentRPM - rpmTarget) ? (currentRPM - rpmTarget) : greatestOvershoot;
-                }
-                totalError += abs(currentRPM - rpmTarget) / (float)updateTimer->previousTrueElapsedInterval;
+                float newError = abs(currentRPM - rpmTarget);
+                totalError += newError * (updateTimer->interval / 1000000.0);
+                absoluteError += newError;
+                samples++;
             }
+            rpmTarget = pidTestJob->currentTargetRpm;
         }
         if(displayTimer->poll()){
             if(keypad->pollState(KeyState::KEY_DOWN) > 0){
@@ -924,24 +921,33 @@ void* pidTest(char* caller){
                     return nullptr;
                 }
             }
+            lcd.clear();
+            lcd.print("PID test ");
+            lcd.print(pidTestJob->index + 1);
+            lcd.print('/');
+            lcd.print(pidTestJob->sequenceLength - 1);
             lcd.setCursor(15, 0);
             lcd.print(animationGraphic[animationIndex]);
             if(animationIndex < 3){ animationIndex++; }
             else { animationIndex = 0; }
+            lcd.setCursor(0, 1);
+            lcd.print(pidTestJob->currentTargetRpm, 0);
+            lcd.setCursor(5, 1);
+            lcd.print((char)(0x02));
+            lcd.print(currentRPM, 0);
+            lcd.setCursor(11, 1);
+            lcd.print((char)(0x03));
+            lcd.print(pidTestJob->currentTargetRpm - currentRPM, 0);
         }
     }
     delete updateTimer;
     delete displayTimer;
-    lcd.clear();
-    lcd.print("Total error:");
-    lcd.setCursor(0, 1);
-    lcd.print(totalError, 2);
-    lcd.print(" rpm");
+    printlcd("Total error:\n");
+    lcd.print((int)totalError);
+    lcd.print(" rpms");
     keypad->pollStateBlocking(KeyState::KEY_DOWN);
-    lcd.clear();
-    lcd.print("Max. overshoot:");
-    lcd.setCursor(0, 1);
-    lcd.print(greatestOvershoot, 2);
+    printlcd("Average error:\n");
+    lcd.print(absoluteError / (float)samples, 2);
     lcd.print(" rpm");
     keypad->pollStateBlocking(KeyState::KEY_DOWN);
     return nullptr;

@@ -1,3 +1,8 @@
+// Copyright 2023 Birdbrain
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+// THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 #include <main.h>
 
 
@@ -58,6 +63,24 @@ uint8_t backslash[8] = {
   0b00001,
   0b00000
 };
+uint8_t rightArrow[8] = {
+  0b00000,
+  0b00100,
+  0b00010,
+  0b11111,
+  0b00010,
+  0b00100,
+  0b00000
+};
+uint8_t deltaSign[8] = {
+  0b00000,
+  0b00000,
+  0b00100,
+  0b01010,
+  0b10001,
+  0b11111,
+  0b00000
+};
 char ENTER = '#';
 char BACK = '*';
 char UP = 'C';
@@ -110,7 +133,6 @@ SpinnerJob* pidTestJob = nullptr;
 SpinnerJob* quickRunJob = nullptr;
 
 
-
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Core-1  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 RPI_PICO_Timer ITimer3(3);
@@ -135,6 +157,8 @@ void setup() {
 
   keypad = new BBkeypad((char*)keys, keypadCols, keypadRows, colPins, rowPins);
   lcd.createChar(1, backslash);
+  lcd.createChar(2, rightArrow);
+  lcd.createChar(3, deltaSign);
 
   lcd.setCursor(0, 1);
   lcd.print("Init memory...   ");
