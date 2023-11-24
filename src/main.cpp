@@ -7,8 +7,9 @@
 
 
 // ============================GPIO PINOUT==================================
-// 0 used for usb
-// 1 used for usb
+// Make sure to set the pinout for your implementation! Do not change the pin variable names!
+// 0 used for usb, I think
+// 1 used for usb, I think...?
 const int lcd_rs = 2;
 const int lcd_en = 3;
 const int lcd_d4 = 5;
@@ -24,10 +25,10 @@ const int membrane_col_1_pin = 13;
 const int membrane_col_2_pin = 14;
 const int membrane_col_3_pin = 15;
 //=====================
-const int SPI0_RX = 16;  //Arduino-pico core default pin
-const int SPI0_SC = 17;  //Arduino-pico core default pin
-const int SPI0_CLK = 18; //Arduino-pico core default pin
-const int SPI0_TX = 19;  //Arduino-pico core default pin
+const int SPI0_RX = 16;  //Do not change! Arduino-pico core default pin, used for SD card reader
+const int SPI0_SC = 17;  //Do not change! Arduino-pico core default pin, used for SD card reader
+const int SPI0_CLK = 18; //Do not change! Arduino-pico core default pin, used for SD card reader
+const int SPI0_TX = 19;  //Do not change! Arduino-pico core default pin, used for SD card reader
 const int spinner_power_enable_pin = 20;
 const int tachometer_pin = 21;
 const int motor_pwm_pin = 22;
@@ -35,25 +36,33 @@ const int motor_pwm_pin = 22;
 // 24 not available
 // 25 not available
 const int spinner_running_led_pin = 26;
-const int manual_rpm_fine_adjust_pin = 27;
-const int manual_rpm_coarse_adjust_pin = 28;
+const int manual_rpm_fine_adjust_pin = 27; //Must be an analog pin
+const int manual_rpm_coarse_adjust_pin = 28; //Must be an analog pin
 
 
 // ========================Program constants================================
 const float motorPWMFrequency = 25000.0;
-const int analogInterruptInterval = 100;
-const float controllerMinOutput = 12.0;
-const float controllerMaxOutput = 100.0;
-const u16_t inputBufferSize = 16;
-const long tachometerDebounceInterval = 800;
-const u8_t keypadRows = 4;
-const u8_t keypadCols = 4;
-const char keys[keypadRows][keypadCols] = {
+const long tachometerDebounceInterval = 800; //if microseconds, increase if double presses happen regularly. 
+const u8_t keypadRows = 4; //Not recommended to change the membrane keypad size to be different from 4x4.
+const u8_t keypadCols = 4; //Not recommended to change the membrane keypad size to be different from 4x4.
+const char keys[keypadRows][keypadCols] = { //if your keypad has a different key layout, then it can be changed here.
   {'1','2','3','A'},
   {'4','5','6','B'},
   {'7','8','9','C'},
   {'*','0','#','D'}
 };
+const Config defaultConfig = { //Default configuration for first boot and/or if SD card memory is not found.
+  .Kp = 0.18, 
+  .Ki = 0.09, 
+  .Kd = 0.0025, 
+  .analogAlpha = 0.01, //This shouldn't be changed unless you really know what's going on.
+  .rpmAlpha = 0.2, //This shouldn't be changed unless you really know what's going on.
+  .minDutyCycle = 10.0 //Some fans may need a higher minimum duty cycle. It is recommended to update it through spinner menu.
+};
+const int analogInterruptInterval = 100; //Should not be necessary to change.
+const float controllerMinOutput = 12.0; //default
+const float controllerMaxOutput = 100.0; //default
+const u16_t inputBufferSize = 16; //It is highly recommended to not change this.
 uint8_t backslash[8] = {
   0b00000,
   0b10000,
@@ -92,9 +101,8 @@ const u8_t rowPins[keypadRows] = {membrane_row_0_pin, membrane_row_1_pin, membra
 const u8_t colPins[keypadCols] = {membrane_col_0_pin, membrane_col_1_pin, membrane_col_2_pin, membrane_col_3_pin};
 const unsigned int keypadDebounceInterval = 10;
 const unsigned long coreLoopInterval = 500; //in micros
-volatile float analogAlpha = 0.01;
-volatile float rpmAlpha = 0.2;
-const Config defaultConfig = {0.6, 0.3, 0.002, 0.01, 0.2, 10.0};
+volatile float analogAlpha = config.analogAlpha;
+volatile float rpmAlpha = config.rpmAlpha;
 const char jobsPath[] = "/jobs/";
 const char jobsFolderPath[] = "/jobs";
 const char configFilePath[] = "/config";
@@ -111,7 +119,7 @@ volatile float pidDutyCycle = 0.0;
 volatile Config config = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 volatile Config storedConfig = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 volatile bool motorEnabled = false;
-volatile float minDutyCycle = 10.0;
+volatile float minDutyCycle = config.minDutyCycle;
 RP2040_PWM* motorDriver;
 PID_controller* pidController;
 
@@ -147,8 +155,9 @@ volatile unsigned long microsSinceLastRpmCount = 0;
 volatile bool newRpmData = false;
 
 
+// ===========================CODE======================================
 
-// ========================= Core 0 ========================================
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Core-0  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 void setup() {
   lcd.begin(16, 2);
   lcd.print("Initializing...");
@@ -253,7 +262,7 @@ void loop() {
 }
 
 
-// ============================== Core 1 =====================================
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Core-1  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 void setup1() {
   motorDriver = new RP2040_PWM(motor_pwm_pin, motorPWMFrequency, 0.0);
   coreLoop = new SWtimer(coreLoopInterval, true);
@@ -477,7 +486,6 @@ SpinnerJob* loadJob(File file){
   DeserializationError error = deserializeJson(doc, file);
   if(error){
     delete job;
-    doc.~BasicJsonDocument();
     printlcdErrorMsg("Job load failed!\n@loadJob-3");
     return nullptr;
   }
