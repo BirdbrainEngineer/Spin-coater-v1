@@ -81,7 +81,7 @@ const char deviceInfo[DEVICEINFOLEN][20] = {
     "Firmware version",
     "0.1.0",
     "Hardware version",
-    "0.1.0",
+    "0.1.1",
     "Programming:",
     "Birdbrain",
     "Hardware design:",

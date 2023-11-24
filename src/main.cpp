@@ -5,6 +5,7 @@
 
 #include <main.h>
 
+#define HW_REVISION 2
 
 // ============================GPIO PINOUT==================================
 // Make sure to set the pinout for your implementation! Do not change the pin variable names!
@@ -12,8 +13,13 @@
 // 1 used for usb, I think...?
 const int lcd_rs = 2;
 const int lcd_en = 3;
+#if HW_REVISION == 1
 const int lcd_d4 = 5;
 const int lcd_d5 = 4;
+#else
+const int lcd_d4 = 4; 
+const int lcd_d5 = 5;
+#endif
 const int lcd_d6 = 6;
 const int lcd_d7 = 7;
 const int membrane_row_0_pin = 8;
@@ -32,9 +38,9 @@ const int SPI0_TX = 19;  //Do not change! Arduino-pico core default pin, used fo
 const int spinner_power_enable_pin = 20;
 const int tachometer_pin = 21;
 const int motor_pwm_pin = 22;
-// 23 not available
-// 24 not available
-// 25 not available
+// pin 23 not available
+// pin 24 not available
+// pin 25 not available
 const int spinner_running_led_pin = 26;
 const int manual_rpm_fine_adjust_pin = 27; //Must be an analog pin
 const int manual_rpm_coarse_adjust_pin = 28; //Must be an analog pin
@@ -51,6 +57,13 @@ const char keys[keypadRows][keypadCols] = { //if your keypad has a different key
   {'7','8','9','C'},
   {'*','0','#','D'}
 };
+char ENTER = '#';
+char BACK = '*';
+char UP = 'C';
+char DOWN = 'D';
+char YES = 'A';
+char NO = 'B';
+char DOT = 'D';
 const Config defaultConfig = { //Default configuration for first boot and/or if SD card memory is not found.
   .Kp = 0.18, 
   .Ki = 0.09, 
@@ -90,13 +103,6 @@ uint8_t deltaSign[8] = {
   0b11111,
   0b00000
 };
-char ENTER = '#';
-char BACK = '*';
-char UP = 'C';
-char DOWN = 'D';
-char YES = 'A';
-char NO = 'B';
-char DOT = 'D';
 const u8_t rowPins[keypadRows] = {membrane_row_0_pin, membrane_row_1_pin, membrane_row_2_pin, membrane_row_3_pin};
 const u8_t colPins[keypadCols] = {membrane_col_0_pin, membrane_col_1_pin, membrane_col_2_pin, membrane_col_3_pin};
 const unsigned int keypadDebounceInterval = 10;
