@@ -1,5 +1,5 @@
 # Birbrain's DIY Spin Coater version 1
-This repository contains the source code for a diy spin coater I designed. A video on YouTube showing some of the design- and build process of this device can be found [here](https://www.youtube.com/channel/UCZDOT6k11nLH3ZwA6Xp89NA). 
+This repository contains the source code for a diy spin coater I designed. A video on YouTube showing some of the design- and build process of this device can be found [here](https://www.youtube.com/watch?v=mm2ZiJNfISs). 
 
 ![Birdbrain's DIY Spin Coater version 1](Images/spin%20coater.jpg)
 
@@ -180,3 +180,4 @@ The following is a sample job file.
 
 ![Sample structure of a job file](Images/job%20file.png)
 
+**Under Construction!**
