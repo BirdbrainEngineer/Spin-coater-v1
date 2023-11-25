@@ -159,8 +159,7 @@ The second menu option `Jobs` is completely non-functional.
 
 The "PID test" under third menu option `Test` is not available.
 
-All spinner configuration will have reverted back to firmware defaults. It is possible to update the configuration, however if the spin coater is shut down, all changes made are lost. 
-
+All spinner configuration will have reverted back to firmware defaults. It is possible to update the configuration, however if the spin coater is shut down, all changes made are lost.
 
 
 ## Licenses
@@ -170,4 +169,14 @@ The hardware design of this project is licensed under [Creative Commons 4.0 Attr
 
 ## Job routine creation
 
+**Under Construction!**
+
 ## Job file structure
+Job files are [JSON](https://www.json.org/json-en.html) files with no `.json` extension.
+
+To have the spin coater load your job files, they need to be placed into the `JOBS` folder which should be found in the root directory of the SD card. The only exception to this is the job file called `PID`, which is used for the PID test. The `PID` job should be found in the root directory of the SD card.
+
+The following is a sample job file.
+
+![Sample structure of a job file](Images/job%20file.png)
+
