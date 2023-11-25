@@ -1,0 +1,79 @@
+{
+  "length": 14,
+  "use_embedded_pid_constants": false,
+  "Kp": 0.600000024,
+  "Ki": 0.414999992,
+  "Kd": 0.0015,
+  "sequence": [
+    {
+      "duration": 5000,
+      "task": 2,
+      "rpm": 5000
+    },
+    {
+      "duration": 8000,
+      "task": 1,
+      "rpm": 5000
+    },
+    {
+      "duration": 5000,
+      "task": 2,
+      "rpm": 1500
+    },
+    {
+      "duration": 8000,
+      "task": 1,
+      "rpm": 1500
+    },
+    {
+      "duration": 2500,
+      "task": 2,
+      "rpm": 5000
+    },
+    {
+      "duration": 5000,
+      "task": 1,
+      "rpm": 5000
+    },
+    {
+      "duration": 2500,
+      "task": 2,
+      "rpm": 1500
+    },
+    {
+      "duration": 5000,
+      "task": 1,
+      "rpm": 1500
+    },
+    {
+      "duration": 4000,
+      "task": 2,
+      "rpm": 3500
+    },
+    {
+      "duration": 4000,
+      "task": 2,
+      "rpm": 1500
+    },
+    {
+      "duration": 4000,
+      "task": 2,
+      "rpm": 5000
+    },
+    {
+      "duration": 4000,
+      "task": 2,
+      "rpm": 1500
+    },
+    {
+      "duration": 3000,
+      "task": 2,
+      "rpm": 1500
+    },
+    {
+      "duration": 1,
+      "task": 3,
+      "rpm": 1
+    }
+  ]
+}

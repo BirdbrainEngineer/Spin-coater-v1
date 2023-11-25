@@ -1,0 +1,19 @@
+{
+  "length": 2,
+  "use_embedded_pid_constants": false,
+  "Kp": 0.174999997,
+  "Ki": 0.090000004,
+  "Kd": 0.0025,
+  "sequence": [
+    {
+      "duration": 2200,
+      "task": 2,
+      "rpm": 2000
+    },
+    {
+      "duration": 1,
+      "task": 3,
+      "rpm": 1
+    }
+  ]
+}
