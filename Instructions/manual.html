@@ -1,0 +1,456 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"> 
+<title>BMV2-V2 assembly manual</title>
+<style>
+	body {
+		background: url("bg.webp");
+		font-family: Cantarell;
+		/*font-weight: bold;*/
+		font-size: 24px;
+	}
+	
+	h1 {text-align: center;}
+	
+	h1, h2, h3, h4, p, ul, dl {
+		max-width: 1200px;
+		margin: auto;
+		margin-bottom: 12px;
+	}
+	
+	dl {display: flex; flex-wrap: wrap; color: #444;}
+	dt {width: 10%; text-align: right; padding-right: 8px;}
+	dd {width: 80%; margin: 0;}
+	
+	p {text-align: justify;}
+	
+	ul {
+		columns: 3;
+	}
+	
+	h3 {
+		border-top: 4px solid #bbb;
+		margin-top: 22px;
+		padding-top: 8px;
+	}
+	
+	section {
+		background-color: rgba(0, 0, 0, 0.1);
+		margin: 32px;
+		border-radius: 24px;
+		padding: 36px 12px;
+	}
+
+	.two {
+		display: flex;
+		justify-content: center;
+		margin-top: 32px;
+		margin-bottom: 50px;
+		position: relative;
+		break-inside: avoid;
+	}
+	
+	img {max-width: 100%;}
+	.two img {max-width: 50%;}
+	
+	img:not(.arrow) {
+		filter: drop-shadow(0px 0px 8px #222);
+	}
+	
+	.arrow {
+		position: absolute;
+		left: calc(50% - 203px);
+		top: calc(50% - 127px);
+		z-index: 10;
+	}
+	
+	a {color: blue;}
+	
+	li {
+		break-inside: avoid;
+	}
+	
+	.center {
+		text-align: center;
+	}
+</style>
+
+</head>
+<body>
+
+<h1>Birdbrain's Spin Coater version 1 assembly manual</h1>
+<h2>Foreword</h2>
+<p>Welcome to the assembly manual for <b>"Birdbrain's Spin Coater v1"</b>. A video showcasing the author's build of the device as well as working principle can be found on <a href="https://www.youtube.com/watch?v=mm2ZiJNfISs" target=_blank>YouTube</a>.
+
+<div><img src="img/full.png"></div>
+
+<p>A spin coater is a tool used for depositing very thin films of liquids onto a solid substrate. Depending on the characteristics of the liquid, the films can be as thin as a couple dozen nanometers thick. Often the liquid is a solution of some sort, eg. photoresists. The liquid solution is spin coated, after which the solvent is allowed to evaporate (sometimes actively driven off with the application of heat), leaving behind a thin film of the desired solute. 
+<p>These devices are often found used in universities, research laboratories and specialized manufacturing facilities, eg. integrated circuit fabs. For that reason, these devices are often overly expensive for what they are - essentially just a programmable spinner. The author did not want to spend thousands of $ on such a device and so decided to make a basic version of their own for a tiny fraction of the cost of buying one. 
+
+
+<h2>What you will need</h2>
+<p>The manual at hand uses the metric system for its measurements with the default unit being millimeters (mm). 
+
+<p><b>To successfully replicate this project you will require some tools, which are listed below.</b> 
+<ul>
+	<li>3D printer*
+	<li>Soldering station
+	<li>Personal computer 
+	<li>Drill with various bits
+	<li>Saw (metal saw works great)
+	<li>Screwdriver compatible with your chosen screws
+	<li>Small file(s)
+	<li>Craft knife
+	<li>Hot glue gun or superglue
+	<li>Wire strippers and/or crimping tool(s)**
+</ul>
+<dl>
+	<dt>*</dt><dd>FDM or SLA printer both work. Alternatively, a CNC mill if you are extremely adventurous - requires modifying .stl files to fit your needs.</dd>
+	<dt>**</dt><dd></dd>
+</dl>
+
+<p>First 3D print out the parts in .stl files, which can be found in the <b>Hardware</b> folder of the project's <a href="https://github.com/BirdbrainEngineer/Spin-coater-v1" target=_blank>GitHub repository</a>. Required prints are <em>chassis_0.stl, chassis_1.stl, chassis_2.stl, chassis_4.stl, skirt.stl, hub.stl</em>. Additional optional prints are <em>mount.stl, spray catcher.stl</em>. 
+
+<p><b>Comprehensive list of required components</b>
+
+<div><img src="img/parts.png"></div>
+<p>*Parts used to make the logic board not shown here but listed below
+
+<ul>
+	<li>1x Chassis_0 part
+	<li>1x Chassis_1 part
+	<li>1x Chassis_2 part
+	<li>1x Chassis_3 part
+	<li>1x Skirt part
+	<li>1x Hub part
+	<li>1x Mount part *(0)
+	<li>1x Spray catcher part *(0)
+	<li>1x Raspberry Pi Pico
+	<li>1x 80mm 4-pin PC fan (high speed better)
+	<li>1x 12V, 1A, power adapter with barrel connector
+	<li>1x SPI micro-SD-card reader module
+	<li>1x 16x2 LCD display module
+	<li>1x 4x4 membrane matrix keypad
+	<li>1x 15x21mm KCD1 power switch
+	<li>1x Suitable DC-005 barrel jack (depends on your power adapter)
+	<li>4x Anti-slip rubber furniture leg with M3 hole
+	<li>1x 25x (empty) cd/dvd spindle
+	<li>2x WH148 10K potentiometer
+	<li>2x WH148 potentiometer knob
+	<li>2x PT15 10K potentiometer or equivalent
+	<li>12x 3mm M3 heat set insert
+	<li>4x 4mm M4 heat set insert
+	<li>2x TO220 heatsinks *(1)
+	<li>16x M3x10mm screw
+	<li>4x M4x20mm or x17mm screw *(2)
+	<li>1x 12x8cm prototyping/perf board
+	<li>1x 1A glass tube fuse
+	<li>1x glass tube fuse holder
+	<li>1x 1N5819 schottky diode or equivalent
+	<li>5x 1N4005 diode or equivalent *(3)
+	<li>2x 3mm round LED, different colors *(0)
+	<li>1x 1K resistor
+	<li>1x 4K7 resistor *(0)
+	<li>1x 6K8 resistor
+	<li>2x 10K resistor
+	<li>1x 68K resistor *(0)
+	<li>4x 100nF ceramic capacitor
+	<li>1x 330nF 15V+ capacitor
+	<li>2x 2N2222A transistor or equivalent *(4)
+	<li>1x F9540N transistor or equivalent
+	<li>1x L7805CV voltage regulator
+	<li>Preferred wires and connectors
+</ul>
+<dl>
+	<dt>*(0)</dt><dd>Optional but recommended</dd>
+	<dt>*(1)</dt><dd>Only 1 is strictly required, second one optional</dd>
+	<dt>*(2)</dt><dd>Use 20mm screw if "mount" part is used, 17mm otherwise</dd>
+	<dt>*(3)</dt><dd>One diode is optional</dd>
+	<dt>*(4)</dt><dd>Q3 on schematic is BC547A, but is assumed to be 2N2222A instead</dd>
+</dl>
+
+<p>Depending on your proficiency with soldering diy prototype boards, set aside around 3 to 9 hours for soldering alone. The rest of the assembly should take around 30 minutes to an hour. 
+
+<section>
+	<h2>1. Logic board</h2>
+	
+	<p><b>Parts and tools needed</b>
+	<ul>
+		<li>1x 12x8cm prototyping/perf board
+		<li>1x Raspberry Pi Pico
+		<li>1x SPI micro-SD-card reader module
+		<li>2x TO220 heatsinks
+		<li>1x 1A glass tube fuse
+		<li>1x glass tube fuse holder
+		<li>1x 1N5819 schottky diode or equivalent
+		<li>5x 1N4005 diode or equivalent
+		<li>1x 1K resistor
+		<li>1x 4K7 resistor
+		<li>1x 6K8 resistor
+		<li>2x 10K resistor
+		<li>1x 68K resistor
+		<li>4x 100nF ceramic capacitor
+		<li>1x 330nF 15V+ capacitor
+		<li>2x 2N2222A transistor or equivalent
+		<li>1x F9540N transistor or equivalent
+		<li>1x L7805CV voltage regulator
+		<li>Preferred wires and connectors
+		<li>Soldering station
+		<li>Craft knife
+	</ul>
+	<p>Because no PCB design exists for the logic board, it will be necessary to manually place and solder the components of the logic board onto a prototyping/perf board.
+
+	<h3>Preparing the prototyping board</h3>
+	
+	<p>Take the 12cm x 8cm prototyping board and cut it to the required size of 10.5cm x 8cm (105x80 mm). To do this, use a Craft knife to cut out the "outline" of the board (best done straight along a row of holes). After which, you should be able to relatively easily break off the excess parts from the prototyping board.
+	<p>Next drill 4 holes with a diameter of 3mm in the corners of the board. The distance between holes is shown below. 
+
+	<div class="center"><img src="img/board_dimensions.png"></div>
+
+	<h3>Soldering the logic board</h3>
+
+	<p>Lay out the components on the prototyping board in whatever way you see most suitable to satisfy the logic board schematic below. The only hard requirement on placement concerns the "SPI SD card reader module" placement. The 6 pins connecting the SD card reader to the logic board (and the module) are designed to go exactly in the area indicated below, with the SD card slot pointing out of the board, naturally.
+
+	<div class="center"><img src="img/sd_card_area.png"></div>
+
+	<p>Below is the logic board schematic
+
+	<div class="center"><img src="img/schematic.png"></div>
+
+	<p><b>Do not solder the connection to the motor (4-pin fan), 4x4 matrix keybpad, 2x16 LCD display nor SD-card reader directly. There should be a connector of some sort to interface these devices with the logic board.</b> 
+	<p>R7 and R8 should either be connected with ca. 100mm long wires, or better yet, with a connector.
+	<p>R9 and R10 can be omitted, as long as the LED-s that follow them are also omitted. These LED-s should also be on ca. 100mm long wires or better yet, connect up with a connector.
+	<p>Q3 can be replaced with a 2N2222A or equivalent transistor.
+	<p>D6 is optional but recommended.
+	<p>L7805CV <b>requires</b> a heatsink, otherwise it will get destroyed. While the F9540N transistor does not require a heatsink, it can be added. 
+	<p>It is also recommended to not solder the Raspberry Pi Pico directly to the prototyping board, but rather fashion a kind of socket for it, for example out of "0.1" female square header" parts. 
+
+	<p>Below is photos of how the author layed out and soldered their logic board.
+
+	<div class="center"><img src="img/logicboard_0.png"></div>
+	<div class="center"><img src="img/logicboard_1.png"></div>
+
+	<p>Once you are done, you have yourself a <b>Logic board</b> part.
+
+</section>
+
+<section>
+	<h2>2. Spinner assembly</h2>
+	
+	<p><b>Parts needed</b>
+	<ul>
+		<li>1x 80mm 4-pin PC fan
+		<li>1x Hub
+		<li>1x Skirt
+		<li>Saw
+		<li>Craft knife
+	</ul>
+
+	<p>The spinner assembly is the part of the spin coater that actually does the spinning. This project uses a 4-pin PC fan as a base for this purpose since a 4-pin PC fan has a lot of the necessary components for a programmable spinner already built into it - motor power commutation, electronic speed controller unit and tachometer. 
+
+	<h3>1. Separate the fan's rotor and stator</h3>
+	<p>There should be a retaining ring at the bottom of the PC fan. Remove it (<b>don't break it! You will need it to reassemble the fan later!</b>). After doing so, the rotor (the part with the fanblades) should simply slide out of the stator. Careful to not lose any springs, ball bearings and other parts that may have become loose. Make sure to take a note of how these parts were positioned as you will need to reassemble the fan later.
+	<p><b>Note that the graphics shown in the manual do not show the stator's electromagnets, the author apologizes for this.</b>
+	
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/0.png">
+		<img src="img/1.png">
+	</div>
+
+	<h3>2. Remove fanblades</h3>
+	<p>Break off the fanblades from the rotor. After that is done, use a craft knife to remove any protrusions left behind by the fanblades on the rotor - the sides of the rotor should be essentially smooth.
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/2.png">
+		<img src="img/3.png">
+	</div>
+
+	<h3>3. Reduce the height of the fan shroud</h3>
+	<p>Saw the fan's stator in half in its shortest dimension. <b>Make sure to not damage the stator electromagnets or any wires!</b>
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/4.png">
+		<img src="img/5.png">
+	</div>
+
+	<h3>4. Install the skirt</h3>
+	<p>Install the skirt onto the stator by simply pushing it into the shroud leftover. If the skirt is difficult to fit or is very loose after fitting, try rotating the skirt somewhat. If it still does not work properly, then feel free to either file away a bit of the skirt or use some glue to fix it to the stator, whichever is needed. 
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/6.png">
+		<img src="img/7.png">
+	</div>
+
+	<h3>5. Install the hub</h3>
+	<p>Install the hub onto the fan rotor by simply pushing it onto the rotor. The hub should not be able to easily move once fitted, but should still be possible to move without excessive force in order to be able to replace it if needed. You should not use glue to fix the hub onto the rotor. If the hub is too tight or too loose, then consider modifying the <em>spin coater hub.FCStd</em> or <em>hub.stl</em> file to fit your fan rotor's dimensions instead. 
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/8.png">
+		<img src="img/9.png">
+	</div>
+
+	<h3>6. Reassemble the fan</h3>
+	<p>Reassemble the rotor and stator of the fan. Make sure you put all ball bearings, washers, springs and other components of the fan that may have become loose during disassembly in their original positions. Make sure that the retaining ring at the bottom of the fan is properly in place.
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/10.png">
+		<img src="img/11.png">
+	</div>
+
+	<p>At this point, you have yourself a completed <b>Spinner assembly</b>
+</section>
+
+<section>
+	<h2>3. Assembly</h2>
+	
+	<p><b>Parts and tools needed</b>
+	<ul>
+		<li>1x Chassis_0 part
+		<li>1x Chassis_1 part
+		<li>1x Chassis_2 part
+		<li>1x Chassis_3 part
+		<li>Logic board
+		<li>Spinner assembly
+		<li>1x Mount part
+		<li>1x Spray catcher part
+		<li>1x 16x2 LCD display module
+		<li>1x 4x4 membrane matrix keypad
+		<li>1x 15x21mm KCD1 power switch
+		<li>1x Suitable DC-005 barrel jack
+		<li>4x Anti-slip rubber furniture leg with M3 hole
+		<li>1x 25x (empty) cd/dvd spindle
+		<li>2x WH148 10K potentiometer
+		<li>2x WH148 potentiometer knob
+		<li>12x 3mm M3 heat set insert
+		<li>4x 4mm M4 heat set insert
+		<li>16x M3x10mm screw
+		<li>4x M4x20mm or x17mm screw
+		<li>2x 3mm round LED, different colors
+		<li>Preferred wires and connectors
+		<li>Screwdriver
+		<li>Soldering iron
+		<li>Drill with drill bits
+		<li>Hot glue gun or superglue
+	</ul>
+	<p>It's time to finally assemble the spin coater!
+
+	<h3>1. Make the spin chamber</h3>
+	<p>Take the spindle case base and drill 4x 4mm holes in a square pattern around the center, each hole being 50.5mm from the center of the base. Then drill a large, 36-38mm diameter hole in the center of the base. You can also drill a medium sized hole (say about 15 to 20mm diameter) in the center of the see-through casing of the spindle case.
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/12.png">
+		<img src="img/13.png">
+	</div>
+
+	<h3>2. Install the logic board</h3>
+	<p>Install the logic board into the Chassis_0 part. Use 4x M3x10mm screws to fix the board in place. The SD card slot should face towards the right of the board and line up with the hole in the chassis part. 
+	<p>Also install the power switch and the barrel jack power connector. The power switch fit might be too tight, in which case feel free to modify the switch to fit the corresponding hole better (or the chassis to accept the switch better). Use hot glue/superglue to fix the barrel jack to the chassis. 
+	<p>Connect up the power switch and connector to the logic board. 
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/15.png">
+		<img src="img/16.png">
+	</div>
+
+	<h3>3. Add lid heat inserts</h3>
+	<p>Use a soldering iron to add 4x M3 3mm heat set inserts into the 4 holes in the top slanted part of the chassis_0 part. 
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/17.png">
+		<img src="img/18.png">
+	</div>
+
+	<h3>4. Install LCD and manual control potentiometers</h3>
+	<p>Use hot glue/superglue to fix the 2x WH148 10K potentiometers to the chassis_2 part in their corresponding holes. Makes sure to leave enough room to connect wires to the potentiometers in order to connect them to the logic board later. 
+	<p>Use 4x M3x10mm screws to fix the LCD display to the chassis_2 part. If the display does not stay connected with the use of the screws only then also use 4x M3 nuts to keep the LCD display attached to the screws. <b>The assembly graphics are somewhat incorrect!! The LCD should also attach to the underside (same side as the potentiometers) of the chassis_2 part!! This mistake persists throughout the manual! The author is terribly sorry for this.</b>
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/19.png">
+		<img src="img/20.png">
+	</div>
+	
+	<h3>5. Install keypad and LED-s</h3>
+	<p>If you chose to have the "power" indicator LED and "spinner active" LED, then use some hot glue or superglue to glue the 2x 3mm LED-s to the chassis_3 part in their corresponding holes.
+	<p>Use some hot glue or superglue(preferred) to fix the 4x4 membrane matrix keypad to its corresponding slot in the chassis_3 part. Take note that the cable of the keypad should be facing downwards. 
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/21.png">
+		<img src="img/22.png">
+	</div>
+
+	<h3>6. Assemble the Logic box</h3>
+	<p>Take the populated chassis_0, chassis_2 and chassis_3 parts and sandwich them together, using 4x M3x10mm screws to keep them fixed together. Take note that the membrane matrix keypad cable should be routed through the hole in the bottom part of the chassis_2 part.
+	<p><b>Don't forget to connect up any and all connections before fixing the chassis parts together! Take care to connect up all the connections correctly as messing with the connections at a later time is annoying...</b>
+	<p>Then take 2x WH148 potentiometer knobs and softly push them onto the exposed potentiometer ends. 
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/23.png">
+		<img src="img/24.png">
+	</div>
+
+	<h3>7. Connect up the spinner platform</h3>
+	<p>Use a soldering iron to add 4x M3 3mm heat set inserts to the 4 holes at the back side of the assembled logic box. Then use 4x M3x10mm screws to gix the chassis_1 part to the logic box, giving you a spin coater assembly.
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/25.png">
+		<img src="img/26.png">
+	</div>
+
+	<h3>8. Install the remaining heat set inserts</h3>
+	<p>Turn the spin coater over and use a soldering iron to install 4x M3 3mm heat set inserts, as well as 4x M4 4mm heat set inserts into their corresponding holes.
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/27.png">
+		<img src="img/28.png">
+	</div>
+
+	<h3>9. Add legs</h3>
+	<p>Take 4x Anti-slip rubber furniture legs and fix them to the 4 corners by using 4x M3x10mm screws.
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/29.png">
+		<img src="img/30.png">
+	</div>
+
+	<h3>Install the spinner assembly</h3>
+	<p>Take thespinenr assembly, mount part as well as the modified cd spindle case base and sandwich them together. Use 4x M4x17mm or M4x20mm screws (17mm if not using the optional mount part) to fix them to the spin coater as shown below. 
+	<p>If the cd spindle case does not sit flush with the spinner platform, then feel free to add M4 nutes and/or washers as "standoffs".
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/31.png">
+		<img src="img/32.png">
+	</div>
+
+	<h3>10.* Finish the spin chamber</h3>
+	<p>If you opted to also make a spray catcher part(recommended) then it should be possible to simply slip it onto the spin coater as shown. The cd spindle case cover should be able to fit over this spray catcher and still be able to lock onto the cd spindle case base. 
+	<p>When using the spin coater, it is always recommended to have both the spray catcher and the cover installed during spinning in order to reduce the chance that any of your coating liquid sprays out of the chamber. In addition it prevents any of the spray from getting through the ventilation holes at the back of the logic box of the spin coater and potentially shorting the electronics. 
+
+	<div class="two">
+		<img src="img/arrow.png" class="arrow">
+		<img src="img/33.png">
+		<img src="img/34.png">
+	</div>
+
+</section>
+<h1>All Done! Enjoy!</h1>
+<div><img src="img/full.png"></div>
+
+</body>
+</html>

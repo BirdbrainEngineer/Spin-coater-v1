@@ -161,6 +161,9 @@ The "PID test" under third menu option `Test` is not available.
 
 All spinner configuration will have reverted back to firmware defaults. It is possible to update the configuration, however if the spin coater is shut down, all changes made are lost.
 
+## Building your own
+If you would like to build your own spin coater of this design, then the [assembly manual](/Instructions/manual.html) can be found in the **Instructions** folder of this repository.
+
 
 ## Licenses
 The software of this project is licensed under [MIT](https://opensource.org/license/mit/) software license.
@@ -169,7 +172,32 @@ The hardware design of this project is licensed under [Creative Commons 4.0 Attr
 
 ## Job routine creation
 
-**Under Construction!**
+When creating a job routine in the spinner, the spinner will ask the following three questions in a loop.
+
+1. **Which task to perform** 
+    
+    * *Ramp* - Performs a linear ramp-up or ramp-down of the speed of the spinner.
+    * *Hold* - Holds the spinner speed at a specified speed.
+    * *End* - Final instruction in a job routine, if this is encountered, the job routine is immediately stopped and finished.
+
+2. **RPM / Speed**
+    
+    If the task was to "ramp", then it will linearly interpolate towards this speed from the previously set speed (0 if first task in the routine). If the task was "hold", then sets the speed setpoint to this speed. No effect if any other task is encountered.
+
+3. **Duration**
+
+    The duration of the particular task in the routine in **milliseconds**. In case of "ramp" task, the speed is interpolated over the course of this time duration. In case of "hold" task, the speed is set and held for this time duration. No effect if any other task is encountered.
+
+Once the `End` task is chosen while programming a job routine, the spin coater will immediately assume the job routine finished and so the programming interface is exited.
+
+For example, if the following commands are entered while programming:
+
+* Ramp, 3000, 5000
+* Hold, 3000, 5000
+* Ramp, 500, 6000
+* End
+
+... then when the job gets executed, the spin coater would linearly spin the spinner from 0 RPM up to 3000RPM over the course of 5 seconds. It would then hold the speed at 3000RPM for a further 5 seconds. Finally, it would linearly slow down the spinner from 3000RPM to 500RPM over the course of 6 seconds. The job would then immediately finish. 
 
 ## Job file structure
 Job files are [JSON](https://www.json.org/json-en.html) files with no `.json` extension.
@@ -180,4 +208,17 @@ The following is a sample job file.
 
 ![Sample structure of a job file](Images/job%20file.png)
 
-**Under Construction!**
+The job file has 5 single-valued variables and a single array.
+
+* `length` is an integer that **must** be equal to the number of elements in the `sequence` array.
+* `use_embedded_pid_constants` is a boolean which specifies whether to use the `Kp`, `Ki` and `Kd` values baked into the job file as PID constants for the PID controller, or whether to use the spinner's currently set internal PID constants. `false` means that the spinner's internal PID constants are used instead of the constants specified in the file.
+* `Kp` is a floating point number that will be used as the **Kp** constant for the PID controller if `use_embedded_pid_constants` is set to `true`. 
+* `Ki` is a floating point number that will be used as the **Ki** constant for the PID controller if `use_embedded_pid_constants` is set to `true`. 
+* `Kd` is a floating point number that will be used as the **Kd** constant for the PID controller if `use_embedded_pid_constants` is set to `true`. 
+* `sequence` is an array type which holds elements made of three variables:
+    * `duration` is an integer. Refer to [job routine creation](#job-routine-creation) for more information.
+    * `task` is an integer. `1` means "hold" task, `2` means "ramp" task and `3` means "end" task. No other numbers should be used here. Refer to [job routine creation](#job-routine-creation) for more information.
+    * `rpm` is an integer. Refer to [job routine creation](#job-routine-creation) for more information.
+
+## Known bugs
+* The `Search for a job` functionality under `Delete job` menu does not work properly if the name contains numbers. **Workaround:** Find the job you wish to delete in the `Delete job` menu manually and delete it that way.
