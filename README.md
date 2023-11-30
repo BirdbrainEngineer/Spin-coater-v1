@@ -162,7 +162,7 @@ The "PID test" under third menu option `Test` is not available.
 All spinner configuration will have reverted back to firmware defaults. It is possible to update the configuration, however if the spin coater is shut down, all changes made are lost.
 
 ## Building your own
-If you would like to build your own spin coater of this design, then the [assembly manual](/Instructions/manual.html) can be found in the **Instructions** folder of this repository.
+If you would like to build your own spin coater of this design, then the [assembly manual](https://birdbrain.engineer/spin-coater/instructions/) can be found in the **Instructions** folder of this repository.
 
 
 ## Licenses
