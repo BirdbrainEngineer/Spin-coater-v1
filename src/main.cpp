@@ -6,6 +6,7 @@
 #include <main.h>
 
 #define HW_REVISION 2
+#define DEBUG false //Enables serial over usb
 
 // ============================GPIO PINOUT==================================
 // Make sure to set the pinout for your implementation! Do not change the pin variable names!
@@ -48,7 +49,7 @@ const int manual_rpm_coarse_adjust_pin = 28; //Must be an analog pin
 
 // ========================Program constants================================
 const float motorPWMFrequency = 25000.0;
-const long tachometerDebounceInterval = 800; //if microseconds, increase if double presses happen regularly. 
+const long tachometerDebounceInterval = 10; //if microseconds, increase if double presses happen regularly. 
 const u8_t keypadRows = 4; //Not recommended to change the membrane keypad size to be different from 4x4.
 const u8_t keypadCols = 4; //Not recommended to change the membrane keypad size to be different from 4x4.
 const char keys[keypadRows][keypadCols] = { //if your keypad has a different key layout, then it can be changed here.
@@ -105,7 +106,7 @@ uint8_t deltaSign[8] = {
 };
 const u8_t rowPins[keypadRows] = {membrane_row_0_pin, membrane_row_1_pin, membrane_row_2_pin, membrane_row_3_pin};
 const u8_t colPins[keypadCols] = {membrane_col_0_pin, membrane_col_1_pin, membrane_col_2_pin, membrane_col_3_pin};
-const unsigned int keypadDebounceInterval = 10;
+const unsigned int keypadDebounceInterval = 100;
 const unsigned long coreLoopInterval = 500; //in micros
 volatile float analogAlpha = config.analogAlpha;
 volatile float rpmAlpha = config.rpmAlpha;
@@ -122,7 +123,14 @@ volatile bool pidEnabled = false;
 volatile float rpmTarget = 0.0;
 volatile float currentRPM = 0.0;
 volatile float pidDutyCycle = 0.0;
-volatile Config config = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+volatile Config config = {
+  .Kp = defaultConfig.Kp,
+  .Ki = defaultConfig.Ki,
+  .Kd = defaultConfig.Kd,
+  .analogAlpha = defaultConfig.analogAlpha,
+  .rpmAlpha = defaultConfig.rpmAlpha,
+  .minDutyCycle = defaultConfig.minDutyCycle
+};
 volatile Config storedConfig = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 volatile bool motorEnabled = false;
 volatile float minDutyCycle = config.minDutyCycle;
@@ -165,6 +173,13 @@ volatile bool newRpmData = false;
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Core-0  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 void setup() {
+  if(DEBUG){
+    while(!Serial); // Wait for Serial to be ready
+    {
+      delay(11);
+    }
+    Serial.println("Core 0 starting.");
+  }
   lcd.begin(16, 2);
   lcd.print("Initializing...");
   lcd.setCursor(0, 1);
@@ -244,6 +259,7 @@ void setup() {
     defaultJobFile.close();
   }
   pidController = new PID_controller(config.Kp, config.Ki, config.Kd, config.minDutyCycle, 100.0);
+  if(DEBUG) {Serial.println("Core 0 started.");}
 }
 
 void loop() {
@@ -270,6 +286,13 @@ void loop() {
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Core-1  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 void setup1() {
+  if(DEBUG){
+    while(!Serial); // Wait for Serial to be ready
+    {
+      delay(9);
+    }
+    Serial.println("Core 1 starting.");
+  }
   motorDriver = new RP2040_PWM(motor_pwm_pin, motorPWMFrequency, 0.0);
   coreLoop = new SWtimer(coreLoopInterval, true);
 
@@ -289,6 +312,7 @@ void setup1() {
   core1Timer = micros();
   interrupts();
   coreLoop->start();
+  if(DEBUG) {Serial.println("Core 1 setup complete.");}
 }
 
 void loop1() {
@@ -316,9 +340,11 @@ void tachInterrupt(){
   unsigned long microsElapsed = currentTime - rpmTimer;
   if (microsElapsed < tachometerDebounceInterval) { return; }
   microsSinceLastRpmCount = microsElapsed;
-  double rpmSample = 1000000.0 / (double)microsElapsed * 15.0; // four transitions per revolution
-  currentRPM = (rpmSample * rpmAlpha) + (currentRPM * (1.0 - rpmAlpha));
+  //Serial.printf("1000000 / %f * 15 = %f\n", (float)microsElapsed, 1000000.0 / (double)(microsElapsed) * 15.0);
+  double rpmSample = 1000000.0 / (double)(microsElapsed) * 15.0; // 15.0 is for four transitions per revolution (rps * 60 / 4)
+  currentRPM = (float)((rpmSample * (double)rpmAlpha) + ((double)currentRPM * (1.0 - (double)rpmAlpha)));
   rpmTimer = currentTime;
+  //Serial.printf("RPM: %f, Micros: %lu RPM Sample: %f\n", currentRPM, microsElapsed, (float)rpmSample);
 }
 
 bool analogInterrupt(struct repeating_timer *t){
@@ -428,6 +454,7 @@ void saveConfiguration(volatile Config &config) {
 }
 
 void printlcdErrorMsg(char* text){
+  if(DEBUG) {Serial.println(text);}
   printlcd(text);
   while(true){
     if(keypad->pollStateBlocking(KeyState::KEY_DOWN) > 0){

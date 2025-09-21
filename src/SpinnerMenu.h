@@ -77,9 +77,9 @@ void* motorTest(char* caller);
 #define DEVICEINFOLEN 15
 const char deviceInfo[DEVICEINFOLEN][20] = {
     " BB Spin Coater",
-    "     v0.1.0",
+    "     v0.1.1",
     "Firmware version",
-    "0.1.0",
+    "0.1.1",
     "Hardware version",
     "0.1.1",
     "Programming:",
