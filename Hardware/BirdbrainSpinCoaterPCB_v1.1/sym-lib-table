@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "BirdbrainSpinCoater")(type "KiCad")(uri "${KIPRJMOD}/BirdbrainSpinCoater.kicad_sym")(options "")(descr ""))
+)
