@@ -95,7 +95,7 @@ The prices in the bill of materials are approximate prices of the components tha
 * C3 capacity comes from the datasheet for L7805CV, however it does appear that the capacity can be larger. Probably the more important thing is that at least some of the capacity is quick-acting, eg. ceramic capacitors. 
 
 ### Some notes on the design...
-Unfortunately, no PCB design exists for this schematic, for I simply used a prototype board and soldered the logic board. 
+If you would prefer to use a KiCAD schematic, then one has been produced and tested by @krasimirk. It can be found in the [BirdbrainSpinCoaterPCB_v1.1 directory](Hardware/BirdbrainSpinCoaterPCB_v1.1).
 
 Make sure to install a TO-220 heatsink at least on the L7805CV, it will burn out otherwise. A heatsink on the F9540N is technically not needed, but optional.
 
